@@ -1,4 +1,3 @@
-
 // Your "Library" tab should look like this
 /*
 Auto-Cards
@@ -6185,328 +6184,21 @@ function AutoCards(inHook, inText, inStop) {
 
 
 // —————————————————————————————————————————————————————————————————————————————————
-// MODULE: STORY ARC ENGINE (SAE)
+// MODULE: STORY ARC ENGINE (SAE)- with mid game fix
 // —————————————————————————————————————————————————————————————————————————————————
-const SAE = {
-    defaults: {
-        isEnabled: true,
-        turnsPerAICall: 25,
-        arcPrompt: `\n[SYSTEM: Stop story. List 11 brief, chronological future events (under 7 words each). Focus on turning points/twists, adhering to specified tone/intensity.]\n`,
-        arcTone: null, 
-        arcIntensity: null, 
-        toneChosen: false,
-        intensityChosen: false,
-        storyArc: [],
-        activePointIndex: 0,
-        completionSuggested: false,
-        isGenerating: false,
-        saveOutput: false,
-        attemptCounter: 0,
-        hasRunEarly: false,
-        initialized: true
-    },
-    tonePrompts:{"sliceoflife":" Focus on personal relationships, daily routines, gentle challenges, character growth. Avoid grand conflicts.","adventure":" Emphasize exploration, discovery, overcoming obstacles, exciting journeys. Include danger & reward.","mystery":" Weave clues, red herrings, secrets, a central puzzle. Build suspense.","romance":" Center on romantic relationship development, emotional connection, obstacles to love, milestones.","intrigue":" Involve political maneuvering, espionage, hidden agendas, betrayal, power struggles. Subtlety & deception.","horror":" Create dread, fear, unease. Unsettling elements, psychological tension, supernatural threats. Player vulnerability.","darkfantasy":" Morally grey characters, bleak settings, corruption. Good may not triumph. Magic dangerous/costly.","heroicfantasy":" Clear good vs evil, brave heroes, powerful villains, magical quests, triumph of good.","comedy":" Prioritize humor, witty dialogue, absurd situations, lighthearted resolutions.","gritty":" Harsh, realistic world, difficult choices, moral ambiguity, consequences. Survival themes.","custom":""},
-    intensityPrompts:{"relaxed":" Leisurely pace, minimal pressure/threat. Pleasant interactions, minor issues.","moderate":" Meaningful challenges & stakes requiring effort, without overwhelming pressure.","challenging":" Significant obstacles, tough decisions with consequences, palpable risk. Success earned.","intense":" High-stakes, constant pressure, difficult moral choices, potential for severe consequences/failure."},
-
-    initialize: function(acAPI) {
-        this.acAPI = acAPI;
-        if (!state.sae || !state.sae.initialized) {
-            state.sae = JSON.parse(JSON.stringify(this.defaults));
-        } else {
-            for (const key in this.defaults) {
-                if (state.sae[key] === undefined) {
-                    state.sae[key] = JSON.parse(JSON.stringify(this.defaults[key]));
-                }
-            }
-        }
-        state.sae.initialized = true;
-    },
-
-    updateAndCreateCards: function() {
-        if (!this.acAPI) return;
-        if (!state.sae) state.sae = JSON.parse(JSON.stringify(this.defaults));
-
-        let settingsCard = this.acAPI.getCard(c => c && c.title === "Story Arc Settings");
-        if (!settingsCard) {
-            settingsCard = this.acAPI.buildCard({ title: "Story Arc Settings", entry: "", keys: "Story Arc Settings", description: "" });
-            if (!settingsCard) return; 
-        }
-
-        const s = state.sae; 
-
-        if (settingsCard.entry) {
-            const cardEntryText = settingsCard.entry;
-            const settingsOnCard = {};
-            const lines = cardEntryText.split('\n');
-
-            lines.forEach(line => {
-                const parts = line.split('=');
-                if (parts.length >= 2) {
-                    const key = parts[0].trim();
-                    const value = parts.slice(1).join('=').trim(); 
-                    settingsOnCard[key] = value;
-                }
-            });
-
-            s.isEnabled = settingsOnCard.hasOwnProperty('isEnabled') ?
-                (settingsOnCard.isEnabled.toLowerCase() === 'true') :
-                (s.isEnabled !== undefined ? s.isEnabled : this.defaults.isEnabled);
-
-            const parsedTurns = settingsOnCard.hasOwnProperty('turnsPerAICall') ?
-                parseInt(settingsOnCard.turnsPerAICall) : NaN;
-            s.turnsPerAICall = Number.isFinite(parsedTurns) ?
-                parsedTurns :
-                (s.turnsPerAICall !== undefined ? s.turnsPerAICall : this.defaults.turnsPerAICall);
-
-            if (settingsOnCard.hasOwnProperty('arcTone') && !s.toneChosen) {
-                const cardTone = settingsOnCard.arcTone.toLowerCase();
-                if (this.tonePrompts.hasOwnProperty(cardTone)) {
-                    s.arcTone = cardTone;
-                }
-            } else if (!s.toneChosen && s.arcTone === undefined) { 
-                s.arcTone = this.defaults.arcTone;
-            }
-
-            if (settingsOnCard.hasOwnProperty('arcIntensity') && !s.intensityChosen) {
-                const cardIntensity = settingsOnCard.arcIntensity.toLowerCase();
-                if (this.intensityPrompts.hasOwnProperty(cardIntensity)) {
-                    s.arcIntensity = cardIntensity;
-                }
-            } else if (!s.intensityChosen && s.arcIntensity === undefined) { 
-                s.arcIntensity = this.defaults.arcIntensity;
-            }
-
-            s.arcPrompt = settingsOnCard.hasOwnProperty('arcPrompt') ?
-                settingsOnCard.arcPrompt :
-                (s.arcPrompt !== undefined ? s.arcPrompt : this.defaults.arcPrompt);
-
-        } else {
-            s.isEnabled = s.isEnabled !== undefined ? s.isEnabled : this.defaults.isEnabled;
-            s.turnsPerAICall = s.turnsPerAICall !== undefined ? s.turnsPerAICall : this.defaults.turnsPerAICall;
-            s.arcTone = (!s.toneChosen && s.arcTone === undefined) ? this.defaults.arcTone : s.arcTone;
-            s.arcIntensity = (!s.intensityChosen && s.arcIntensity === undefined) ? this.defaults.arcIntensity : s.arcIntensity;
-            s.arcPrompt = s.arcPrompt !== undefined ? s.arcPrompt : this.defaults.arcPrompt;
-        }
-
-        const displayTone = s.arcTone || "Not Set";
-        const displayIntensity = s.arcIntensity || "Not Set";
-        const newCardEntry = `isEnabled = ${s.isEnabled}\nturnsPerAICall = ${s.turnsPerAICall}\narcTone = ${displayTone}\narcIntensity = ${displayIntensity}\narcPrompt = ${s.arcPrompt}`;
-
-        const toneOptions = Object.keys(this.tonePrompts).join(', ');
-        const intensityOptions = Object.keys(this.intensityPrompts).join(', ');
-        const newCardDescription = `⚙️ SAE Controls:\n/setarctype [tone] / [intensity] ✨🔥\n/regeneratearc ✨\n/saestop 🛑\n/currentarcsettings ℹ️\n\nTone Opt: ${toneOptions}\nIntensity Opt: ${intensityOptions}\n\nSettings in entry. 'custom' tone uses arcPrompt.`;
-
-        if (settingsCard.entry !== newCardEntry) settingsCard.entry = newCardEntry;
-        if (settingsCard.description !== newCardDescription) settingsCard.description = newCardDescription;
-
-        let arcContentCard = this.acAPI.getCard(c => c && c.title === "Current Story Arc");
-        if (!arcContentCard) {
-            arcContentCard = this.acAPI.buildCard({ title: "Current Story Arc", entry: "", keys: "Current Story Arc", description: "🤫 SPOILERS! Plot outline." });
-            if (arcContentCard) s.storyArc = []; 
-        } else if (arcContentCard.entry) {
-            const cardArcText = arcContentCard.entry.trim();
-            if (!s.isGenerating) {
-                 s.storyArc = cardArcText ? cardArcText.split('\n').map(l => l.trim()).filter(ln => /^\d+\.\s/.test(ln)) : [];
-            }
-        } else { 
-             if (!s.isGenerating) {
-                s.storyArc = [];
-             }
-        }
-    },
-
-    handleInput: function(rawPlayerInput) {
-        let txt = rawPlayerInput;
-        let cmdH = false;
-        if (!state.sae) return { text: txt, commandHandled: false };
-        let cmd = (rawPlayerInput || "").trim().toLowerCase();
-
-        if (!state.sae.isEnabled && (cmd.startsWith("/regeneratearc") || cmd.startsWith("/setarctype") || cmd.startsWith("/currentarcsettings"))) { 
-            txt = formatSystemMessage("⚙️ SAE is off. Check settings card to enable.");
-            cmdH = true;
-            return { text: txt, commandHandled: cmdH };
-        }
-
-        if (cmd.startsWith("/setarctype")) {
-            const argString = rawPlayerInput.substring("/setarctype".length).trim();
-            const parts = argString.split('/');
-            if (parts.length === 2) {
-                let rawNewTone = parts[0].trim();
-                let rawNewIntensity = parts[1].trim();
-                const newTone = rawNewTone.replace(/[.!?]+$/, "").trim().toLowerCase();
-                const newIntensity = rawNewIntensity.replace(/[.!?]+$/, "").trim().toLowerCase();
-                let toneValid = this.tonePrompts.hasOwnProperty(newTone);
-                let intensityValid = this.intensityPrompts.hasOwnProperty(newIntensity);
-
-                if (toneValid && intensityValid) {
-                    state.sae.arcTone = newTone;
-                    state.sae.arcIntensity = newIntensity;
-                    state.sae.toneChosen = true; 
-                    state.sae.intensityChosen = true; 
-                    state.sae.isGenerating = true;
-                    state.sae.saveOutput = true;
-                    state.sae.attemptCounter = 0;
-                    state.sae.completionSuggested = false;
-                    txt = formatSystemMessage(`🎭 Arc Tone set to: '${newTone}'.\n🔥 Arc Intensity set to: '${newIntensity}'.\n🧠 Brainstorming new story arc...`);
-                } else {
-                    let errorMsg = "🤔 Invalid input for /setarctype.\n";
-                    if (!toneValid) errorMsg += `- Unknown tone: '${newTone}' (from input '${rawNewTone}'). Valid: ${Object.keys(this.tonePrompts).join(', ')}\n`;
-                    if (!intensityValid) errorMsg += `- Unknown intensity: '${newIntensity}' (from input '${rawNewIntensity}'). Valid: ${Object.keys(this.intensityPrompts).join(', ')}\n`;
-                    txt = formatSystemMessage(errorMsg.trim() + "\nUsage: /setarctype [tone] / [intensity]");
-                }
-            } else {
-                txt = formatSystemMessage("🤔 Usage: /setarctype [tone] / [intensity]\nExample: /setarctype adventure / moderate");
-            }
-            cmdH = true;
-        } else if (cmd.startsWith("/currentarcsettings")) {
-            const currentToneDisplay = state.sae.arcTone ? `'${state.sae.arcTone}'` : "Not Set (Use /setarctype)";
-            const currentIntensityDisplay = state.sae.arcIntensity ? `'${state.sae.arcIntensity}'` : "Not Set (Use /setarctype)";
-            txt = formatSystemMessage(`Current Settings:\n🎭 Tone: ${currentToneDisplay}\n🔥 Intensity: ${currentIntensityDisplay}`);
-            cmdH = true;
-        } else if (cmd.startsWith("/regeneratearc")) {
-            const choicesMade = state.sae.toneChosen && state.sae.intensityChosen;
-            const toneIsValid = choicesMade && state.sae.arcTone && this.tonePrompts.hasOwnProperty(state.sae.arcTone);
-            const intensityIsValid = choicesMade && state.sae.arcIntensity && this.intensityPrompts.hasOwnProperty(state.sae.arcIntensity);
-
-            if (toneIsValid && intensityIsValid) {
-                state.sae.isGenerating = true;
-                state.sae.saveOutput = true;
-                state.sae.completionSuggested = false;
-                state.sae.attemptCounter = 0;
-                txt = formatSystemMessage(`🧠 Brainstorming new arc (Tone: ${state.sae.arcTone}, Intensity: ${state.sae.arcIntensity})...`);
-            } else {
-                txt = formatSystemMessage(`🤔 Set arc type first using: /setarctype [tone] / [intensity]`);
-            }
-            cmdH = true;
-        } 
-        else if (cmd.startsWith("/saestop")) {
-            state.sae.isGenerating = false;
-            state.sae.saveOutput = false;
-            state.sae.attemptCounter = 0;
-            txt = formatSystemMessage("🛑 Arc generation cancelled!");
-            cmdH = true;
-        }
-        return { text: txt, commandHandled: cmdH };
-    },
-
-    handleContext: function(text) {
-        if (!state.sae || !state.sae.isEnabled || typeof text !== 'string') return text;
-
-        if (state.sae.isGenerating && state.sae.saveOutput) {
-            let basePrompt = state.sae.arcPrompt || this.defaults.arcPrompt;
-            let toneModifier = "";
-            let intensityModifier = "";
-            const currentTone = state.sae.arcTone;
-            const currentIntensity = state.sae.arcIntensity;
-
-            if (currentTone && currentTone !== "custom" && this.tonePrompts.hasOwnProperty(currentTone)) {
-                toneModifier = this.tonePrompts[currentTone];
-            }
-            if (currentIntensity && this.intensityPrompts.hasOwnProperty(currentIntensity)) {
-                intensityModifier = this.intensityPrompts[currentIntensity];
-            }
-            let finalPrompt = basePrompt + toneModifier + intensityModifier;
-            return text + finalPrompt;
-        }
-
-        if (state.sae.storyArc?.length > 0 && state.sae.activePointIndex < state.sae.storyArc.length && !(state.sae.isGenerating && state.sae.saveOutput)) {
-            const currentToneDisplay = state.sae.arcTone || "N/A";
-            const currentIntensityDisplay = state.sae.arcIntensity || "N/A";
-            const currentPointText = state.sae.storyArc[state.sae.activePointIndex].replace(/^\d+\.\s*/, '');
-            const guidancePrompt = `\n[Plot Hint (T:${currentToneDisplay},I:${currentIntensityDisplay}): Towards "${currentPointText}".]\n`;
-            const authorsNoteMatch = text.match(/(\[Author's note:[\s\S]*?)(\])/i);
-            if (authorsNoteMatch) {
-                return text.replace(authorsNoteMatch[0], `${authorsNoteMatch[1]}${guidancePrompt.trim()} ${authorsNoteMatch[2]}`);
-            }
-            return text + `\n[Author's note:${guidancePrompt.trim()}]`;
-        }
-        return text;
-    },
-
-    shouldTriggerGeneration: function() {
-        const currentTurn = (typeof info !== 'undefined' && Number.isFinite(info.actionCount)) ? info.actionCount : 0;
-        if (!state.sae || state.sae.isGenerating || !state.sae.isEnabled) {
-            return false;
-        }
-        if (currentTurn < 2) {
-            return false;
-        }
-        const choicesMade = state.sae.toneChosen && state.sae.intensityChosen;
-        const toneActuallyValid = choicesMade && state.sae.arcTone && this.tonePrompts.hasOwnProperty(state.sae.arcTone);
-        const intensityActuallyValid = choicesMade && state.sae.arcIntensity && this.intensityPrompts.hasOwnProperty(state.sae.arcIntensity);
-        const typeSettingsAreValidAndChosen = toneActuallyValid && intensityActuallyValid;
-        
-        if (state.sae.hasRunEarly !== true && currentTurn >= 2 && currentTurn <= 7) {
-            if (!typeSettingsAreValidAndChosen) {
-                return "choose_type";
-            }
-            return "generate_now";
-        }
-        if (state.sae.turnsPerAICall > 0 && (currentTurn > 1) && (currentTurn % state.sae.turnsPerAICall === 0)) {
-            if (!typeSettingsAreValidAndChosen) {
-                return "choose_type";
-            }
-            return "generate_now";
-        }
-        return false;
-    },
-
-    handleOutput: function(text) {
-        if (!state.sae || !state.sae.isEnabled || !state.sae.saveOutput) return text;
-        if (!text || typeof text !== 'string' || text.trim() === '') {
-            state.sae.attemptCounter++;
-            if (state.sae.attemptCounter >= 3) {
-                state.sae.isGenerating = false; state.sae.saveOutput = false; state.sae.attemptCounter = 0;
-                return formatSystemMessage(`😥 AI shy! No arc ideas after 3 tries.`);
-            } else {
-                return formatSystemMessage(`😮 Empty AI response. Retrying arc (${state.sae.attemptCounter + 1}/3)...`);
-            }
-        }
-
-        const pts = text.split('\n').map(l => l.trim()).filter(ln => /^\d+\.\s/.test(ln));
-        if (pts.length < 8) { 
-            state.sae.attemptCounter++;
-            if (state.sae.attemptCounter >= 3) {
-                state.sae.isGenerating = false; state.sae.saveOutput = false; state.sae.attemptCounter = 0;
-                return formatSystemMessage(`😥 Invalid arc (less than 8 points after 3 tries).`);
-            } else {
-                return formatSystemMessage(`🤔 Not a full arc (got ${pts.length} points). Retrying (${state.sae.attemptCounter + 1}/3)...`);
-            }
-        } else {
-            state.sae.isGenerating = false; state.sae.saveOutput = false; state.sae.attemptCounter = 0;
-            state.sae.activePointIndex = 0; state.sae.completionSuggested = false; state.sae.storyArc = pts;
-
-            if (state.sae.hasRunEarly !== true) { 
-                state.sae.hasRunEarly = true;
-            }
-
-            if (this.acAPI) {
-                const arcContentCard = this.acAPI.getCard(c => c && c.title === "Current Story Arc");
-                if (arcContentCard) {
-                    const oldEntry = arcContentCard.entry || "No previous arc.";
-                    const turn = (typeof info !== 'undefined' && Number.isFinite(info.actionCount)) ? info.actionCount : 'N/A';
-                    arcContentCard.description = `Log(Turn ${turn})|Previous Arc:\n${oldEntry}\n\n` + (arcContentCard.description || "").substring(0, 1000); 
-                    arcContentCard.entry = pts.join('\n');
-                }
-            }
-            return formatSystemMessage(`🎉 New arc (Tone: ${state.sae.arcTone}, Intensity: ${state.sae.arcIntensity}) saved to card!`);
-        }
-    },
-
-    checkForCompletion: function(currentAiOutputText) {
-        if (!state.sae || !state.sae.isEnabled || !state.sae.storyArc?.length || state.sae.completionSuggested || state.sae.activePointIndex >= state.sae.storyArc.length) return;
-        const activePointText = (state.sae.storyArc[state.sae.activePointIndex] || "").replace(/^\d+\.\s*/, '').trim();
-        if (!activePointText) return;
-        if (currentAiOutputText && typeof currentAiOutputText === 'string' && currentAiOutputText.trim()) {
-            if (textSimilarityScore(activePointText, currentAiOutputText) > 0.45) {
-                if (!state.toastQueue) state.toastQueue = [];
-                state.toastQueue.push(`[SAE💡: Point "${activePointText}" seems complete.]`); 
-                state.sae.completionSuggested = true;
-            }
-        }
-    }
-};
-// END OF SAE MODULE
+const SAE = { 
+        defaults: { isEnabled: true, turnsPerAICall: 25, arcPrompt: `\n[SYSTEM: Stop story. List 11 brief, chronological future events (under 7 words each). Focus on turning points/twists, adhering to specified tone/intensity.]\n`, arcTone: null, arcIntensity: null, toneChosen: false, intensityChosen: false, storyArc: [], activePointIndex: 0, completionSuggested: false, isGenerating: false, saveOutput: false, attemptCounter: 0, hasRunEarly: false, initialized: true, initialized_mid_game: undefined, trigger_initial_arc_on_load: false, postReinitMessage: null },
+        tonePrompts:{"sliceoflife":" Focus on personal relationships, daily routines, gentle challenges, character growth. Avoid grand conflicts.","adventure":" Emphasize exploration, discovery, overcoming obstacles, exciting journeys. Include danger & reward.","mystery":" Weave clues, red herrings, secrets, a central puzzle. Build suspense.","romance":" Center on romantic relationship development, emotional connection, obstacles to love, milestones.","intrigue":" Involve political maneuvering, espionage, hidden agendas, betrayal, power struggles. Subtlety & deception.","horror":" Create dread, fear, unease. Unsettling elements, psychological tension, supernatural threats. Player vulnerability.","darkfantasy":" Morally grey characters, bleak settings, corruption. Good may not triumph. Magic dangerous/costly.","heroicfantasy":" Clear good vs evil, brave heroes, powerful villains, magical quests, triumph of good.","comedy":" Prioritize humor, witty dialogue, absurd situations, lighthearted resolutions.","gritty":" Harsh, realistic world, difficult choices, moral ambiguity, consequences. Survival themes.","custom":""},
+        intensityPrompts:{"relaxed":" Leisurely pace, minimal pressure/threat. Pleasant interactions, minor issues.","moderate":" Meaningful challenges & stakes requiring effort, without overwhelming pressure.","challenging":" Significant obstacles, tough decisions with consequences, palpable risk. Success earned.","intense":" High-stakes, constant pressure, difficult moral choices, potential for severe consequences/failure."},
+        initialize: function(acAPI) { this.acAPI = acAPI; let wasFreshSAEInit = false; if (!state.sae || !state.sae.initialized) { state.sae = JSON.parse(JSON.stringify(this.defaults)); wasFreshSAEInit = true; } else { for (const key in this.defaults) { if (state.sae[key] === undefined) { state.sae[key] = JSON.parse(JSON.stringify(this.defaults[key])); } } } state.sae.initialized = true; state.sae.postReinitMessage = null; if (state.sae.initialized_mid_game === undefined || wasFreshSAEInit) { const currentTurn = (typeof info !== 'undefined' && info.actionCount !== undefined) ? info.actionCount : 0; if (currentTurn > 7 && (wasFreshSAEInit || (!state.sae.hasRunEarly && (!state.sae.storyArc || state.sae.storyArc.length === 0)))) { state.sae.trigger_initial_arc_on_load = true; } state.sae.initialized_mid_game = true; } if (wasFreshSAEInit) { state.sae.postReinitMessage = `Story Arc Engine initialized/reset. Use /setarctype [tone] / [intensity] to begin.`; } },
+        updateAndCreateCards: function() { if (!this.acAPI) return; if (!state.sae) state.sae = JSON.parse(JSON.stringify(this.defaults)); let settingsCard = this.acAPI.getCard(c => c && c.title === "Story Arc Settings"); if (!settingsCard) { settingsCard = this.acAPI.buildCard({ title: "Story Arc Settings", entry: "", keys: "Story Arc Settings", description: "" }); if (!settingsCard) return; } const s = state.sae; if (settingsCard.entry) { const cardEntryText = settingsCard.entry; const settingsOnCard = {}; const lines = cardEntryText.split('\n'); lines.forEach(line => { const parts = line.split('='); if (parts.length >= 2) { const key = parts[0].trim(); const value = parts.slice(1).join('=').trim(); settingsOnCard[key] = value; } }); s.isEnabled = settingsOnCard.hasOwnProperty('isEnabled') ? (settingsOnCard.isEnabled.toLowerCase() === 'true') : (s.isEnabled !== undefined ? s.isEnabled : this.defaults.isEnabled); const parsedTurns = settingsOnCard.hasOwnProperty('turnsPerAICall') ? parseInt(settingsOnCard.turnsPerAICall) : NaN; s.turnsPerAICall = Number.isFinite(parsedTurns) ? parsedTurns : (s.turnsPerAICall !== undefined ? s.turnsPerAICall : this.defaults.turnsPerAICall); if (settingsOnCard.hasOwnProperty('arcTone') && !s.toneChosen) { const cardTone = settingsOnCard.arcTone.toLowerCase(); if (this.tonePrompts.hasOwnProperty(cardTone)) { s.arcTone = cardTone; } } else if (!s.toneChosen && s.arcTone === undefined) { s.arcTone = this.defaults.arcTone; } if (settingsOnCard.hasOwnProperty('arcIntensity') && !s.intensityChosen) { const cardIntensity = settingsOnCard.arcIntensity.toLowerCase(); if (this.intensityPrompts.hasOwnProperty(cardIntensity)) { s.arcIntensity = cardIntensity; } } else if (!s.intensityChosen && s.arcIntensity === undefined) { s.arcIntensity = this.defaults.arcIntensity; } s.arcPrompt = settingsOnCard.hasOwnProperty('arcPrompt') ? settingsOnCard.arcPrompt : (s.arcPrompt !== undefined ? s.arcPrompt : this.defaults.arcPrompt); } else { s.isEnabled = s.isEnabled !== undefined ? s.isEnabled : this.defaults.isEnabled; s.turnsPerAICall = s.turnsPerAICall !== undefined ? s.turnsPerAICall : this.defaults.turnsPerAICall; s.arcTone = (!s.toneChosen && s.arcTone === undefined) ? this.defaults.arcTone : s.arcTone; s.arcIntensity = (!s.intensityChosen && s.arcIntensity === undefined) ? this.defaults.arcIntensity : s.arcIntensity; s.arcPrompt = s.arcPrompt !== undefined ? s.arcPrompt : this.defaults.arcPrompt; } const displayTone = s.arcTone || "Not Set"; const displayIntensity = s.arcIntensity || "Not Set"; const newCardEntry = `isEnabled = ${s.isEnabled}\nturnsPerAICall = ${s.turnsPerAICall}\narcTone = ${displayTone}\narcIntensity = ${displayIntensity}\narcPrompt = ${s.arcPrompt}`; const toneOptions = Object.keys(this.tonePrompts).join(', '); const intensityOptions = Object.keys(this.intensityPrompts).join(', '); const newCardDescription = `⚙️ SAE Controls:\n/setarctype [tone] / [intensity] ✨🔥\n/regeneratearc ✨\n/saestop 🛑\n/currentarcsettings ℹ️\n\nTone Opt: ${toneOptions}\nIntensity Opt: ${intensityOptions}\n\nSettings in entry. 'custom' tone uses arcPrompt.`; if (settingsCard.entry !== newCardEntry) settingsCard.entry = newCardEntry; if (settingsCard.description !== newCardDescription) settingsCard.description = newCardDescription; let arcContentCard = this.acAPI.getCard(c => c && c.title === "Current Story Arc"); if (!arcContentCard) { arcContentCard = this.acAPI.buildCard({ title: "Current Story Arc", entry: "", keys: "Current Story Arc", description: "🤫 SPOILERS! Plot outline." }); if (arcContentCard) s.storyArc = []; } else if (arcContentCard.entry) { const cardArcText = arcContentCard.entry.trim(); if (!s.isGenerating) { s.storyArc = cardArcText ? cardArcText.split('\n').map(l => l.trim()).filter(ln => /^\d+\.\s/.test(ln)) : []; } } else { if (!s.isGenerating) { s.storyArc = []; } } },
+        handleInput: function(rawPlayerInput) { let txt = rawPlayerInput; let cmdH = false; if (!state.sae) return { text: txt, commandHandled: false }; let cmd = (rawPlayerInput || "").trim().toLowerCase(); if (!state.sae.isEnabled && (cmd.startsWith("/regeneratearc") || cmd.startsWith("/setarctype") || cmd.startsWith("/currentarcsettings"))) { txt = formatSystemMessage("⚙️ SAE is off. Check settings card to enable."); cmdH = true; return { text: txt, commandHandled: cmdH }; } if (cmd.startsWith("/setarctype")) { const argString = rawPlayerInput.substring("/setarctype".length).trim(); const parts = argString.split('/'); if (parts.length === 2) { let rawNewTone = parts[0].trim(); let rawNewIntensity = parts[1].trim(); const newTone = rawNewTone.replace(/[.!?]+$/, "").trim().toLowerCase(); const newIntensity = rawNewIntensity.replace(/[.!?]+$/, "").trim().toLowerCase(); let toneValid = this.tonePrompts.hasOwnProperty(newTone); let intensityValid = this.intensityPrompts.hasOwnProperty(newIntensity); if (toneValid && intensityValid) { state.sae.arcTone = newTone; state.sae.arcIntensity = newIntensity; state.sae.toneChosen = true; state.sae.intensityChosen = true; state.sae.isGenerating = true; state.sae.saveOutput = true; state.sae.attemptCounter = 0; state.sae.completionSuggested = false; state.sae.trigger_initial_arc_on_load = false; txt = formatSystemMessage(`🎭 Arc Tone set to: '${newTone}'.\n🔥 Arc Intensity set to: '${newIntensity}'.\n🧠 Brainstorming new story arc...`); } else { let errorMsg = "🤔 Invalid input for /setarctype.\n"; if (!toneValid) errorMsg += `- Unknown tone: '${newTone}' (from input '${rawNewTone}'). Valid: ${Object.keys(this.tonePrompts).join(', ')}\n`; if (!intensityValid) errorMsg += `- Unknown intensity: '${newIntensity}' (from input '${rawNewIntensity}'). Valid: ${Object.keys(this.intensityPrompts).join(', ')}\n`; txt = formatSystemMessage(errorMsg.trim() + "\nUsage: /setarctype [tone] / [intensity]"); } } else { txt = formatSystemMessage("🤔 Usage: /setarctype [tone] / [intensity]\nExample: /setarctype adventure / moderate"); } cmdH = true; } else if (cmd.startsWith("/currentarcsettings")) { const currentToneDisplay = state.sae.arcTone ? `'${state.sae.arcTone}'` : "Not Set (Use /setarctype)"; const currentIntensityDisplay = state.sae.arcIntensity ? `'${state.sae.arcIntensity}'` : "Not Set (Use /setarctype)"; txt = formatSystemMessage(`Current Settings:\n🎭 Tone: ${currentToneDisplay}\n🔥 Intensity: ${currentIntensityDisplay}`); cmdH = true; } else if (cmd.startsWith("/regeneratearc")) { const choicesMade = state.sae.toneChosen && state.sae.intensityChosen; const toneIsValid = choicesMade && state.sae.arcTone && this.tonePrompts.hasOwnProperty(state.sae.arcTone); const intensityIsValid = choicesMade && state.sae.arcIntensity && this.intensityPrompts.hasOwnProperty(state.sae.arcIntensity); if (toneIsValid && intensityIsValid) { state.sae.isGenerating = true; state.sae.saveOutput = true; state.sae.completionSuggested = false; state.sae.attemptCounter = 0; state.sae.trigger_initial_arc_on_load = false; txt = formatSystemMessage(`🧠 Brainstorming new arc (Tone: ${state.sae.arcTone}, Intensity: ${state.sae.arcIntensity})...`); } else { txt = formatSystemMessage(`🤔 Set arc type first using: /setarctype [tone] / [intensity]`); } cmdH = true; } else if (cmd.startsWith("/saestop")) { state.sae.isGenerating = false; state.sae.saveOutput = false; state.sae.attemptCounter = 0; state.sae.trigger_initial_arc_on_load = false; txt = formatSystemMessage("🛑 Arc generation cancelled!"); cmdH = true; } return { text: txt, commandHandled: cmdH }; },
+        handleContext: function(text) { if (!state.sae || !state.sae.isEnabled || typeof text !== 'string') return text; if (state.sae.isGenerating && state.sae.saveOutput) { let basePrompt = state.sae.arcPrompt || this.defaults.arcPrompt; let toneModifier = ""; let intensityModifier = ""; const currentTone = state.sae.arcTone; const currentIntensity = state.sae.arcIntensity; if (currentTone && currentTone !== "custom" && this.tonePrompts.hasOwnProperty(currentTone)) { toneModifier = this.tonePrompts[currentTone]; } if (currentIntensity && this.intensityPrompts.hasOwnProperty(currentIntensity)) { intensityModifier = this.intensityPrompts[currentIntensity]; } let finalPrompt = basePrompt + toneModifier + intensityModifier; return text + finalPrompt; } if (state.sae.storyArc?.length > 0 && state.sae.activePointIndex < state.sae.storyArc.length && !(state.sae.isGenerating && state.sae.saveOutput)) { const currentToneDisplay = state.sae.arcTone || "N/A"; const currentIntensityDisplay = state.sae.arcIntensity || "N/A"; const currentPointText = state.sae.storyArc[state.sae.activePointIndex].replace(/^\d+\.\s*/, ''); const guidancePrompt = `\n[Plot Hint (T:${currentToneDisplay},I:${currentIntensityDisplay}): Towards "${currentPointText}".]\n`; const authorsNoteMatch = text.match(/(\[Author's note:[\s\S]*?)(\])/i); if (authorsNoteMatch) { return text.replace(authorsNoteMatch[0], `${authorsNoteMatch[1]}${guidancePrompt.trim()} ${authorsNoteMatch[2]}`); } return text + `\n[Author's note:${guidancePrompt.trim()}]`; } return text; },
+        shouldTriggerGeneration: function() { const currentTurn = (typeof info !== 'undefined' && Number.isFinite(info.actionCount)) ? info.actionCount : 0; if (!state.sae || state.sae.isGenerating || !state.sae.isEnabled) return false; const choicesMade = state.sae.toneChosen && state.sae.intensityChosen; const toneActuallyValid = choicesMade && state.sae.arcTone && this.tonePrompts.hasOwnProperty(state.sae.arcTone); const intensityActuallyValid = choicesMade && state.sae.arcIntensity && this.intensityPrompts.hasOwnProperty(state.sae.arcIntensity); const typeSettingsAreValidAndChosen = toneActuallyValid && intensityActuallyValid; if (state.sae.trigger_initial_arc_on_load) { if (!typeSettingsAreValidAndChosen) return "choose_type"; return "generate_now"; } if (currentTurn < 2) return false; if (state.sae.hasRunEarly !== true && currentTurn >= 2 && currentTurn <= 7) { if (!typeSettingsAreValidAndChosen) return "choose_type"; return "generate_now"; } if (state.sae.turnsPerAICall > 0 && (currentTurn > 1) && (currentTurn % state.sae.turnsPerAICall === 0)) { if (!typeSettingsAreValidAndChosen) return "choose_type"; return "generate_now"; } return false; },
+        handleOutput: function(text) { if (!state.sae || !state.sae.isEnabled || !state.sae.saveOutput) return text; if (!text || typeof text !== 'string' || text.trim() === '') { state.sae.attemptCounter++; if (state.sae.attemptCounter >= 3) { state.sae.isGenerating = false; state.sae.saveOutput = false; state.sae.attemptCounter = 0; state.sae.trigger_initial_arc_on_load = false; return formatSystemMessage(`😥 AI shy! No arc ideas after 3 tries.`); } else { return formatSystemMessage(`😮 Empty AI response. Retrying arc (${state.sae.attemptCounter + 1}/3)...`); } } const pts = text.split('\n').map(l => l.trim()).filter(ln => /^\d+\.\s/.test(ln)); if (pts.length < 8) { state.sae.attemptCounter++; if (state.sae.attemptCounter >= 3) { state.sae.isGenerating = false; state.sae.saveOutput = false; state.sae.attemptCounter = 0; state.sae.trigger_initial_arc_on_load = false; return formatSystemMessage(`😥 Invalid arc (less than 8 points after 3 tries).`); } else { return formatSystemMessage(`🤔 Not a full arc (got ${pts.length} points). Retrying (${state.sae.attemptCounter + 1}/3)...`); } } else { state.sae.isGenerating = false; state.sae.saveOutput = false; state.sae.attemptCounter = 0; state.sae.activePointIndex = 0; state.sae.completionSuggested = false; state.sae.storyArc = pts; state.sae.trigger_initial_arc_on_load = false; if (state.sae.hasRunEarly !== true) { state.sae.hasRunEarly = true; } if (this.acAPI) { const arcContentCard = this.acAPI.getCard(c => c && c.title === "Current Story Arc"); if (arcContentCard) { const oldEntry = arcContentCard.entry || "No previous arc."; const turn = (typeof info !== 'undefined' && Number.isFinite(info.actionCount)) ? info.actionCount : 'N/A'; arcContentCard.description = `Log(Turn ${turn})|Previous Arc:\n${oldEntry}\n\n` + (arcContentCard.description || "").substring(0, 1000); arcContentCard.entry = pts.join('\n'); } } return formatSystemMessage(`🎉 New arc (Tone: ${state.sae.arcTone}, Intensity: ${state.sae.arcIntensity}) saved to card!`); } },
+        checkForCompletion: function(currentAiOutputText) { if (!state.sae || !state.sae.isEnabled || !state.sae.storyArc?.length || state.sae.completionSuggested || state.sae.activePointIndex >= state.sae.storyArc.length) return; const activePointText = (state.sae.storyArc[state.sae.activePointIndex] || "").replace(/^\d+\.\s*/, '').trim(); if (!activePointText) return; if (currentAiOutputText && typeof currentAiOutputText === 'string' && currentAiOutputText.trim()) { if (textSimilarityScore(activePointText, currentAiOutputText) > 0.45) { if (!state.toastQueue) state.toastQueue = []; state.toastQueue.push(`[SAE💡: Point "${activePointText}" seems complete.]`); state.sae.completionSuggested = true; } } }
+    };
+    
 // ==================================================================
 // MASTER HOOK FUNCTIONS
 // ==================================================================
@@ -6515,20 +6207,14 @@ function initializeCombinedModules() {
     if (sharedAcAPI === null && typeof AutoCards === 'function') {
         try {
             const acI = AutoCards();
-            if (acI && typeof acI.API === 'object') {
-                sharedAcAPI = acI.API;
-            } else {
-                console.warn(`AutoCards() did not return expected API object.`); // Simplified log
-                sharedAcAPI = null;
-            }
-        } catch (e) {
-            console.error(`Error getting AutoCards API.`, e); // Simplified log
-            sharedAcAPI = null;
-        }
+            if (acI && typeof acI.API === 'object') { sharedAcAPI = acI.API; } 
+            else { console.warn(`AutoCards() did not return expected API object.`); sharedAcAPI = null; }
+        } catch (e) { console.error(`Error getting AutoCards API.`, e); sharedAcAPI = null; }
     }
     Formatter.initialize(sharedAcAPI);
-    STT.initialize(sharedAcAPI);
-    SAE.initialize(sharedAcAPI);
+    STT.initialize(sharedAcAPI); 
+    SAE.initialize(sharedAcAPI);   
+
     if (state.toastQueue === undefined) state.toastQueue = [];
     if (state.currentActionTypeForTimeAdvance === undefined) {
         const currentTurn = (typeof info !== 'undefined' && Number.isFinite(info.actionCount)) ? info.actionCount : 0;
@@ -6538,6 +6224,25 @@ function initializeCombinedModules() {
 
 globalThis.onInput_Combined = function(text) {
     initializeCombinedModules(); 
+    
+    let postInitMessages = [];
+    if (state.stt && state.stt.postReinitMessage) {
+        postInitMessages.push(state.stt.postReinitMessage);
+        state.stt.postReinitMessage = null; 
+    }
+    if (state.sae && state.sae.postReinitMessage) {
+        postInitMessages.push(state.sae.postReinitMessage);
+        state.sae.postReinitMessage = null; 
+    }
+    if (postInitMessages.length > 0) {
+        const messageStr = postInitMessages.join('\n');
+        if (state.message && typeof state.message === 'string') {
+            state.message += '\n' + messageStr;
+        } else {
+            state.message = messageStr;
+        }
+    }
+    
     Formatter.updateAndCreateCards();
     STT.checkAndCreateCards(); STT.updateSettingsFromCard();
     SAE.updateAndCreateCards();
@@ -6550,58 +6255,25 @@ globalThis.onInput_Combined = function(text) {
     let identifiedPlayerActionForSTT = null;
     let isSystemMessageToIgnore = false;
 
-    const systemMessagePatterns = [
-        /\[SYSTEM-MSG-START\]\s*🎭\s*Arc Tone set to:/i,    
-        /🧠\s*Brainstorming new story arc/i,              
-        />>>\s*please select "continue"/i                 
-    ];
-
-    for (const pattern of systemMessagePatterns) {
-        if (pattern.test(rawInputForActionTypeCheck)) {
-            isSystemMessageToIgnore = true;
-            break;
-        }
-    }
+    const systemMessagePatterns = [ /\[SYSTEM-MSG-START\]\s*🎭\s*Arc Tone set to:/i, /🧠\s*Brainstorming new story arc/i, />>>\s*please select "continue"/i ];
+    for (const pattern of systemMessagePatterns) { if (pattern.test(rawInputForActionTypeCheck)) { isSystemMessageToIgnore = true; break; } }
 
     if (!isSystemMessageToIgnore) {
-        if (rawInputForActionTypeCheck.startsWith("> You say") || rawInputForActionTypeCheck.match(/^\s*say\s*["“]/i)) {
-            identifiedPlayerActionForSTT = "say";
-        } else if (rawInputForActionTypeCheck.startsWith("> You do") || rawInputForActionTypeCheck.match(/^\s*do\s*["“]/i) || rawInputForActionTypeCheck.match(/^\s*>\s*you\s+[^s][^a][^y]/i) ) { 
-            identifiedPlayerActionForSTT = "do";
-        } else if (rawInputForActionTypeCheck.startsWith("> You add to the story") || rawInputForActionTypeCheck.startsWith("> Story:")) {
-            identifiedPlayerActionForSTT = "story";
-        } else if (!rawInputForActionTypeCheck.startsWith("/")) { 
-            if (rawInputForActionTypeCheck && !identifiedPlayerActionForSTT) {
-                 if (rawInputForActionTypeCheck.length > 0) {
-                    identifiedPlayerActionForSTT = "story";
-                 }
-            }
-        }
+        if (rawInputForActionTypeCheck.startsWith("> You say") || rawInputForActionTypeCheck.match(/^\s*say\s*["“]/i)) { identifiedPlayerActionForSTT = "say";
+        } else if (rawInputForActionTypeCheck.startsWith("> You do") || rawInputForActionTypeCheck.match(/^\s*do\s*["“]/i) || rawInputForActionTypeCheck.match(/^\s*>\s*you\s+[^s][^a][^y]/i) ) { identifiedPlayerActionForSTT = "do";
+        } else if (rawInputForActionTypeCheck.startsWith("> You add to the story") || rawInputForActionTypeCheck.startsWith("> Story:")) { identifiedPlayerActionForSTT = "story";
+        } else if (!rawInputForActionTypeCheck.startsWith("/")) { if (rawInputForActionTypeCheck && !identifiedPlayerActionForSTT && rawInputForActionTypeCheck.length > 0) { identifiedPlayerActionForSTT = "story"; } }
     }
 
     let commandInput = (text || "").trim();
     let commandCandidateAfterPrefixStrip = commandInput;
-    const playerActionPrefixes = [ 
-        /^\s*>\s*you\s+verb\s+/i, /^\s*>\s*you\s*say\s*:\s*/i, /^\s*>\s*you\s*/i, /^\s*>\s*/i
-    ];
-    for (const prefixRegex of playerActionPrefixes) {
-        if (prefixRegex.test(commandCandidateAfterPrefixStrip)) {
-            commandCandidateAfterPrefixStrip = commandCandidateAfterPrefixStrip.replace(prefixRegex, "").trim();
-            break;
-        }
-    }
+    const playerActionPrefixes = [ /^\s*>\s*you\s+verb\s+/i, /^\s*>\s*you\s*say\s*:\s*/i, /^\s*>\s*you\s*/i, /^\s*>\s*/i ];
+    for (const prefixRegex of playerActionPrefixes) { if (prefixRegex.test(commandCandidateAfterPrefixStrip)) { commandCandidateAfterPrefixStrip = commandCandidateAfterPrefixStrip.replace(prefixRegex, "").trim(); break; } }
     let potentialDirectCommand = commandCandidateAfterPrefixStrip;
-    const sayWrappedCommandRegex = /^\s*say\s+["'](.+?)["']\s*$/i;
-    const justQuotedCommandRegex = /^\s*["'](.+?)["']\s*$/i;
+    const sayWrappedCommandRegex = /^\s*say\s+["'](.+?)["']\s*$/i; const justQuotedCommandRegex = /^\s*["'](.+?)["']\s*$/i;
     let sayMatch = potentialDirectCommand.match(sayWrappedCommandRegex);
-    if (sayMatch && sayMatch[1] && sayMatch[1].trim().startsWith('/')) {
-        potentialDirectCommand = sayMatch[1].trim();
-    } else {
-        let quoteMatch = potentialDirectCommand.match(justQuotedCommandRegex);
-        if (quoteMatch && quoteMatch[1] && quoteMatch[1].trim().startsWith('/')) {
-            potentialDirectCommand = quoteMatch[1].trim();
-        }
-    }
+    if (sayMatch && sayMatch[1] && sayMatch[1].trim().startsWith('/')) { potentialDirectCommand = sayMatch[1].trim();
+    } else { let quoteMatch = potentialDirectCommand.match(justQuotedCommandRegex); if (quoteMatch && quoteMatch[1] && quoteMatch[1].trim().startsWith('/')) { potentialDirectCommand = quoteMatch[1].trim(); } }
     const cleanedCommandForMatching = potentialDirectCommand.toLowerCase();
 
     let modRes = null; 
@@ -6609,67 +6281,66 @@ globalThis.onInput_Combined = function(text) {
 
     if (cleanedCommandForMatching.startsWith('/')) {
         if (cleanedCommandForMatching.startsWith('/ac') || cleanedCommandForMatching.startsWith('/acredo')) { 
-            if (typeof AutoCards === 'function') {
-                let acResult = AutoCards("input", originalTextForAC, false); 
+            if (typeof AutoCards === 'function') { 
+                let acResult = AutoCards("input", originalTextForAC, false);
                 currentText = (typeof acResult === 'object' && acResult.text !== undefined) ? acResult.text : (Array.isArray(acResult) ? acResult[0] : originalTextForAC);
                 finalStopSignal = (typeof acResult === 'object' && acResult.stop !== undefined) ? acResult.stop : (Array.isArray(acResult) ? acResult[1] : false);
             }
+            commandWasHandledByModule = true; // Mark /ac as handled by a module
             state.currentActionTypeForTimeAdvance = 'system_command'; 
             return { text: currentText, stop: finalStopSignal }; 
         }
+        else if (cleanedCommandForMatching === '/reinit_plugins') {
+            state.formatter = null; state.stt = null; state.sae = null;
+            initializeCombinedModules(); 
+            currentText = formatSystemMessage("🔌 All core plugins re-initialized to their default states.");
+            
+            postInitMessages = []; // Re-collect messages after re-init
+            if (state.stt && state.stt.postReinitMessage) { postInitMessages.push(state.stt.postReinitMessage); state.stt.postReinitMessage = null; }
+            if (state.sae && state.sae.postReinitMessage) { postInitMessages.push(state.sae.postReinitMessage); state.sae.postReinitMessage = null; }
+            if (postInitMessages.length > 0) { currentText += "\n" + postInitMessages.join("\n"); }
+
+            commandWasHandledByModule = true;
+            finalStopSignal = true;
+            // No early return here, let the normal flow set currentActionTypeForTimeAdvance
+        }
         else if (STT.handleInput && (cleanedCommandForMatching.startsWith('/settime') || cleanedCommandForMatching.startsWith('/setdate') || cleanedCommandForMatching.startsWith('/defer') || cleanedCommandForMatching.startsWith('/wait'))) {
             modRes = STT.handleInput(potentialDirectCommand);
-            if (modRes && modRes.commandHandled) {
-                commandWasHandledByModule = true; 
-                let finalOutputText = modRes.text;
-                if (cleanedCommandForMatching.startsWith('/defer')) {
-                     let playerNarrative = "";
-                    if (commandCandidateAfterPrefixStrip.toLowerCase().includes(cleanedCommandForMatching)) {
-                        let tempNarrative = commandCandidateAfterPrefixStrip;
-                        const escapedCmd = potentialDirectCommand.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                        const cmdRegex = new RegExp(escapedCmd, "i");
-                        tempNarrative = tempNarrative.replace(cmdRegex, "").trim();
-                        if (tempNarrative) { playerNarrative = tempNarrative; }
-                    }
-                    if (playerNarrative) {
-                        currentText = `${playerNarrative}\n\n${finalOutputText.trim()}\n\n[The story continues after this time skip.]`;
-                    } else {
-                        currentText = `${finalOutputText.trim()}\n\n[The story jumps forward. Describe what happens or the scene after this passage of time.]`;
-                    }
-                } else { currentText = finalOutputText; }
-                finalStopSignal = false; 
-            }
+            if (modRes && modRes.commandHandled) { commandWasHandledByModule = true; }
         }
         else if (SAE.handleInput && (cleanedCommandForMatching.startsWith('/setarctype') || cleanedCommandForMatching.startsWith('/currentarcsettings') || cleanedCommandForMatching.startsWith('/regeneratearc') || cleanedCommandForMatching.startsWith('/saestop'))) {
             modRes = SAE.handleInput(potentialDirectCommand);
-            if (modRes && modRes.commandHandled) {
-                commandWasHandledByModule = true; 
-                currentText = modRes.text;
-                finalStopSignal = !!(cleanedCommandForMatching.startsWith('/saestop') || cleanedCommandForMatching.startsWith('/currentarcsettings'));
-            }
+            if (modRes && modRes.commandHandled) { commandWasHandledByModule = true; }
+        }
+        
+        if (commandWasHandledByModule && modRes) { 
+            if (cleanedCommandForMatching.startsWith('/defer')) {
+                 let playerNarrative = "";
+                if (commandCandidateAfterPrefixStrip.toLowerCase().includes(cleanedCommandForMatching)) {
+                    let tempNarrative = commandCandidateAfterPrefixStrip; const escapedCmd = potentialDirectCommand.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); const cmdRegex = new RegExp(escapedCmd, "i"); tempNarrative = tempNarrative.replace(cmdRegex, "").trim(); if (tempNarrative) { playerNarrative = tempNarrative; }
+                }
+                if (playerNarrative) { currentText = `${playerNarrative}\n\n${modRes.text.trim()}\n\n[The story continues after this time skip.]`;
+                } else { currentText = `${modRes.text.trim()}\n\n[The story jumps forward. Describe what happens or the scene after this passage of time.]`; }
+            } else { currentText = modRes.text; }
+            
+            if (cleanedCommandForMatching.startsWith('/currentarcsettings') || cleanedCommandForMatching.startsWith('/saestop') || cleanedCommandForMatching === '/reinit_plugins' ) { finalStopSignal = true;
+            } else { finalStopSignal = false; } 
         }
     }
 
-    if (isSystemMessageToIgnore) {
-        state.currentActionTypeForTimeAdvance = 'system_message_ignored';
-    } else if (commandWasHandledByModule) { 
-        state.currentActionTypeForTimeAdvance = 'system_command';
-    } else if (identifiedPlayerActionForSTT) {
-        state.currentActionTypeForTimeAdvance = identifiedPlayerActionForSTT;
+    if (isSystemMessageToIgnore) { state.currentActionTypeForTimeAdvance = 'system_message_ignored';
+    } else if (commandWasHandledByModule) { state.currentActionTypeForTimeAdvance = 'system_command';
+    } else if (identifiedPlayerActionForSTT) { state.currentActionTypeForTimeAdvance = identifiedPlayerActionForSTT;
     } else {
         const currentTurn = (typeof info !== 'undefined' && Number.isFinite(info.actionCount)) ? info.actionCount : -1;
-        if (currentTurn === 0 && (typeof info !== 'undefined' && info.actionType === 'start')) {
-             state.currentActionTypeForTimeAdvance = 'start';
-        } else if (rawInputForActionTypeCheck === "" && currentTurn > 0) { 
-            state.currentActionTypeForTimeAdvance = 'continue';
-        } else { 
-            state.currentActionTypeForTimeAdvance = 'continue'; 
-        }
+        if (currentTurn === 0 && (typeof info !== 'undefined' && info.actionType === 'start')) { state.currentActionTypeForTimeAdvance = 'start';
+        } else if (rawInputForActionTypeCheck === "" && currentTurn > 0) { state.currentActionTypeForTimeAdvance = 'continue';
+        } else { state.currentActionTypeForTimeAdvance = 'continue';  }
     }
     
-    if (typeof AutoCards === 'function' && !cleanedCommandForMatching.startsWith('/ac') && !cleanedCommandForMatching.startsWith('/acredo') ) { 
+    if (typeof AutoCards === 'function' && !commandWasHandledByModule) { 
         let acResult = AutoCards("input", originalTextForAC, finalStopSignal); 
-        if (!commandWasHandledByModule && !isSystemMessageToIgnore) { 
+        if (!isSystemMessageToIgnore) { 
             currentText = (typeof acResult === 'object' && acResult.text !== undefined) ? acResult.text : (Array.isArray(acResult) ? acResult[0] : currentText);
         }
         finalStopSignal = (typeof acResult === 'object' && acResult.stop !== undefined) ? acResult.stop : (Array.isArray(acResult) ? acResult[1] : finalStopSignal);
@@ -6689,23 +6360,14 @@ globalThis.onContext_Combined = function(text, stop) {
     if (STT.handleContext) currentText = STT.handleContext(currentText);
     if (SAE.handleContext) currentText = SAE.handleContext(currentText);
 
-    if (typeof AutoCards === 'function') {
+    if (typeof AutoCards === 'function') { 
         let acResult = AutoCards("context", currentText, currentStop); 
-        if (Array.isArray(acResult) && acResult.length >= 2) {
-            currentText = acResult[0];
-            currentStop = acResult[1];
-        } else if (typeof acResult === 'object' && acResult !== null && acResult.text !== undefined && acResult.stop !== undefined) {
-            currentText = acResult.text; 
-            currentStop = acResult.stop;
-        } else {
-            // Fallback for AutoCards context
+        if (Array.isArray(acResult) && acResult.length >= 2) { currentText = acResult[0]; currentStop = acResult[1];
+        } else if (typeof acResult === 'object' && acResult !== null && acResult.text !== undefined && acResult.stop !== undefined) { currentText = acResult.text; currentStop = acResult.stop;
         }
-
         const isACG = (state.AutoCards?.generation?.workpiece && Object.keys(state.AutoCards.generation.workpiece).length > 0);
         const isSAEG = (state.sae?.isGenerating && state.sae.saveOutput);
-        if (isACG || isSAEG) {
-            currentStop = false;
-        }
+        if (isACG || isSAEG) { currentStop = false; }
     }
     return { text: currentText, stop: currentStop };
 };
@@ -6724,7 +6386,7 @@ globalThis.onOutput_Combined = function(text) {
         if (typeof text === 'string' && text.trim()) systemMessages.push(text); aiNarrativeOutput = "";
     }
     else if (isACGActive) {
-        if (typeof AutoCards === 'function') {
+        if (typeof AutoCards === 'function') { 
             let acOutput = AutoCards("output", aiNarrativeOutput);
             if (typeof acOutput === 'string' && acOutput.trim()) {
                 if (/\[SYSTEM-MSG-START\]|>>>|<<<|{>/.test(acOutput.trim())) { systemMessages.push(acOutput); aiNarrativeOutput = ""; }
@@ -6733,29 +6395,25 @@ globalThis.onOutput_Combined = function(text) {
         }
     }
     else if (isSAEExpectingAIOutputAsArc) {
-        if (SAE.handleOutput) {
-            const saeMsg = SAE.handleOutput(aiNarrativeOutput);
-            if (typeof saeMsg === 'string' && saeMsg.trim()) systemMessages.push(saeMsg);
-        }
-        aiNarrativeOutput = "";
+        if (SAE.handleOutput) { saeSystemMessageGeneratedThisHook = SAE.handleOutput(aiNarrativeOutput); if(saeSystemMessageGeneratedThisHook && typeof saeSystemMessageGeneratedThisHook === 'string') systemMessages.push(saeSystemMessageGeneratedThisHook); }
+        aiNarrativeOutput = ""; 
     }
     else { 
         if (typeof AutoCards === 'function') { aiNarrativeOutput = AutoCards("output", aiNarrativeOutput); }
-
-        if (SAE.shouldTriggerGeneration) {
+        if (SAE.shouldTriggerGeneration) { 
             const triggerResult = SAE.shouldTriggerGeneration();
             if (triggerResult === "choose_type") {
                 saeSystemMessageGeneratedThisHook = formatSystemMessage( `✨ Set Story Arc Type! ✨ (Turn ${currentTurnForOutputLog})\n` + `Type: /setarctype [tone] / [intensity]\n\n` + `Tone Options: ${Object.keys(SAE.tonePrompts || {}).join(', ')}\n` + `(Current: '${state.sae?.arcTone || "null"}')\n\n` + `Intensity Options: ${Object.keys(SAE.intensityPrompts || {}).join(', ')}\n` + `(Current: '${state.sae?.arcIntensity || "null"}')\n\n` + `Example: /setarctype adventure / moderate` );
-                aiNarrativeOutput = "";
+                aiNarrativeOutput = ""; 
             } else if (triggerResult === "generate_now") {
                 if (state.sae) {
                     state.sae.isGenerating = true; state.sae.saveOutput = true; state.sae.attemptCounter = 0; state.sae.completionSuggested = false;
+                    state.sae.trigger_initial_arc_on_load = false; 
                     saeSystemMessageGeneratedThisHook = formatSystemMessage(`📝 SAE preparing new plot (Tone: ${state.sae.arcTone}, Intensity: ${state.sae.arcIntensity}) for next turn! (Turn ${currentTurnForOutputLog})`);
                 }
             }
         }
-        if (saeSystemMessageGeneratedThisHook) { systemMessages.push(saeSystemMessageGeneratedThisHook); }
-
+        if (saeSystemMessageGeneratedThisHook && typeof saeSystemMessageGeneratedThisHook === 'string') { systemMessages.push(saeSystemMessageGeneratedThisHook); }
         if (typeof aiNarrativeOutput === 'string' && aiNarrativeOutput.trim()) {
             const isNowSysMsg = /\[SYSTEM-MSG-START\]|\[SYSTEM:.*\]|>>>|<<<|{>|AFK/.test(aiNarrativeOutput.trim());
             if (enableFormatter && Formatter.format && !isNowSysMsg) { const ctx = (typeof history !== 'undefined' && Array.isArray(history)) ? history.map(h => h.text || "").join('\n') : ''; aiNarrativeOutput = Formatter.format(aiNarrativeOutput, ctx); }
@@ -6776,7 +6434,6 @@ globalThis.onOutput_Combined = function(text) {
         if (!isAnySystemOutput) { if (!combinedOutput.endsWith("\n\n")) { combinedOutput += combinedOutput.endsWith("\n") ? "\n" : "\n\n"; }
         } else { if (!combinedOutput.endsWith("\n")) { combinedOutput += "\n"; } }
     }
-
     if(state.toastQueue?.length>0){ const tM=state.toastQueue.join('\n'); if(state.message&&typeof state.message==='string'&&!state.message.includes(tM.split('\n')[0])){ state.message+='\n'+tM; } else if(!state.message){ state.message=tM; } state.toastQueue=[]; }
     return{text:combinedOutput};
 };
@@ -6806,7 +6463,9 @@ function onLibrary_TAS() {
     // Script is naturally locked
     state.startScript = false;
   }
-
+  if (state.msgHolder == undefined){
+    state.msgHolder = "";
+  }
   log("state.startScript: " + state.startScript);
   
 }
@@ -6923,13 +6582,15 @@ function onOutput_TAS(text) {
     //Final mods store back to SC in correct formatting
     storeModifiersToSC();
 
+    // Message Handler
+    state.message = state.msgHolder;
+    state.msgHolder = "";
 
     turnCounter();
+  }//end of main
 
-  }//end of main()
   return text;
 }
-
 //Input /start unlocks the script else script naturally locked
 function unlockScript(key){ 
   if (state.startScript == false) {
@@ -9088,9 +8749,9 @@ function retrieveStatsFromSC(){
 }
 
 //Function to increment the player's stats
-function statUp(statName,incAmt){
-  //Ensure incAmt is a number
-  if(typeof incAmt !== "number"){
+function statUp(statName, incAmt) {
+  // Ensure incAmt is a number
+  if (typeof incAmt !== "number") {
     incAmt = 0;
   }
   incAmt = Number(incAmt);
@@ -9103,9 +8764,9 @@ function statUp(statName,incAmt){
 
   //Race modifiers influence stat gains
   plrRace = getPlrRace();
-  temp = incAmt * state.playerModifiers[statName+'Mod']/100;
+  temp = incAmt * state.playerModifiers[statName + 'Mod'] / 100;
   //Multiply temp by negative to ensure modifiers dont modify oppositely when incAmt is negative
-  if(incAmt < 0){
+  if (incAmt < 0) {
     temp = temp * -1;
   }
   incAmt = incAmt + temp;
@@ -9114,129 +8775,140 @@ function statUp(statName,incAmt){
 
   //Get maxstat string key Ex: maxATK
   maxStatName = "max" + statName.charAt(0).toUpperCase() + statName.slice(1);
-  
+
   //Save current stat
   stat = state.playerStats[statName];
   log("stat: " + stat);
+  log("----------");
 
-  //Extra hp,mp,ep cant lvl up player, simply increment available value
-  if(statName == "hp" || statName == "mp" || statName == "ep"){
+  // Exception: Extra hp,mp,ep shouldnt lvl up player, simply increment available value
+  if (statName == "hp" || statName == "mp" || statName == "ep") {
     state.playerStats[statName] += incAmt;
 
     //Only two decimal places
     state.playerStats[statName] = Math.round(state.playerStats[statName] * 100) / 100;
 
     //No overflow for hp, mp, ep
-    if(state.playerStats[statName] > state.playerStats[maxStatName]){
+    if (state.playerStats[statName] > state.playerStats[maxStatName]) {
       state.playerStats[statName] = state.playerStats[maxStatName];
     }
 
     // Fetch the "Player Stats" card and log stat changes in description
     const statSC = storyCards.find(sc => sc.title === "Player Stats");
-    if (incAmt >= 0) { sign = "+" }
-    if (incAmt < 0) { sign = "-" }
-    statSC.description = `Log ${state.turnCount} | ${statName.toUpperCase()} (${sign})  :  ${stat} → ${state.playerStats[statName]} (Modded: ${incAmt}, Raw: ${preModIncAmt})\n` + statSC.description;
+
+    if (incAmt >= 0) { sign = "⬆️" }
+    if (incAmt < 0) { sign = "🔻" }
+
+    statSC.description = `Log ${state.turnCount} | ${statName.toUpperCase()} ${sign} :  ${stat} → ${state.playerStats[statName]} (Modded: ${incAmt}, Raw: ${preModIncAmt})\n` + statSC.description;
+
+    state.msgHolder = state.msgHolder + `${statName.toUpperCase()} ${sign} :  ${stat} → ${state.playerStats[statName]}\n`;
   }
-  else{
-    //Formula which decreases value of exp the higher your level and gets the new stat value after exp
+  else {
+    //Formula which decreases value of exp the higher your level and gets the new stat value after exp gain. (stat + incAmt*PercentReduction)
     //New stat after exp scaling formula
-    newStat = stat + incAmt * (1.32 * Math.exp(-0.02 * stat));
+    newStat = 0.01 + stat + incAmt * (1.32 * Math.exp(-0.02 * stat));
 
     // Get scaled incAmt for logging
     scaledIncAmt = incAmt * (1.32 * Math.exp(-0.02 * stat));
-    scaledIncAmt = Math.round(scaledIncAmt*100)/100;
+    scaledIncAmt = Math.round(scaledIncAmt * 100) / 100;
     log("scaledIncAmt: " + scaledIncAmt);
 
-    //Two decimal places only
+    // Two decimal places only
     newStat = Math.round(newStat * 100) / 100;
     log("newStat: " + newStat);
-    //todo: fix rounding at very high levels
-    //Update the player stat to its new stat
+    // todo: fix rounding at very high levels
+
+    // Update the player stat to its new stat
     state.playerStats[statName] = newStat;
 
-    //Stat cant pass max stat so it overflows, get the overflow if it exists
+    // Stat cant pass max stat so it overflows, get the overflow if it exists
     overflow = state.playerStats[statName] - state.playerStats[maxStatName];
     overflow = Math.round(overflow * 100) / 100;
     log("overflow: " + overflow);
 
-    //Fix stat to not pass maxstat
-    if(state.playerStats[statName] > state.playerStats[maxStatName]){
+    // Fix stat to not pass maxstat
+    if (state.playerStats[statName] > state.playerStats[maxStatName]) {
       state.playerStats[statName] = state.playerStats[maxStatName];
     };
 
-    // Fetch the "Player Stats" card and log stat changes in description
+    // Fetch sc and log
     const statSC = storyCards.find(sc => sc.title === "Player Stats");
-    if (incAmt >= 0) { sign = "+" }
-    if (incAmt < 0) { sign = "-" }
-    statSC.description = `Log ${state.turnCount} | ${statName.toUpperCase()} (${sign})  :  ${stat} → ${state.playerStats[statName]} (Scaled: ${scaledIncAmt}, Modded: ${incAmt}, Raw: ${preModIncAmt})\n` + statSC.description;
 
-    //If there is positive overflow, pass it to player EXP
-    if(overflow > 0){
+    if (incAmt >= 0) { sign = "⬆️" }
+    if (incAmt < 0) { sign = "🔻" }
+
+    statSC.description = `Log ${state.turnCount} | ${statName.toUpperCase()} ${sign} :  ${stat} → ${state.playerStats[statName]} (Scaled: ${scaledIncAmt}, Modded: ${incAmt}, Raw: ${preModIncAmt})\n` + statSC.description;
+
+    // Log to msg
+    state.msgHolder = state.msgHolder + `${statName.toUpperCase()} ${sign} :  ${stat} → ${state.playerStats[statName]}\n`;
+
+    //If there is positive stat overflow, pass it to player EXP
+    if (overflow > 0) {
       // Get current max level
       level = state.playerStats.maxLvl;
       log("level: " + level);
 
-      //Scale overflow and add to EXP (Must scale overflow to account when player is high level but has a low stat which will overflow too much to EXP)
-      state.playerStats.exp = state.playerStats.exp + (100 * overflow * (1.32 * Math.exp(-0.02 * level)));
+      // Scale overflow and add to EXP (Must scale overflow to account when player is high level but has a low stat which will overflow too much to EXP)
+      state.playerStats.exp = 0.01 + state.playerStats.exp + (100 * overflow * (1.32 * Math.exp(-0.02 * level)));
 
       // Round to two decimal places
       state.playerStats.exp = Math.round(state.playerStats.exp * 100) / 100;
       log("state.playerStats.exp: " + state.playerStats.exp);
-      
+
       //When maxEXP is reached, increment plr level and reset EXP to 0
-      if(state.playerStats.exp >= state.playerStats.maxExp){
-        // Calculate amt of times to increment lvl
-        lvlIncrement = Math.floor(state.playerStats.exp/state.playerStats.maxExp);
+      if (state.playerStats.exp >= state.playerStats.maxExp) {
+        // Calculate amt of times to increment LVL based on EXP
+        lvlIncrement = Math.floor(state.playerStats.exp / state.playerStats.maxExp);
         log("lvlIncrement: " + lvlIncrement);
 
         // Calculate leftover EXP
-        leftoverExp = 100 * (state.playerStats.exp/state.playerStats.maxExp - lvlIncrement);
+        leftoverExp = 100 * (state.playerStats.exp / state.playerStats.maxExp - lvlIncrement);
         log("leftoverExp: " + leftoverExp);
-        
+
         // Increment LVL
-        state.playerStats.lvl = state.playerStats.maxLvl;
-        state.playerStats.lvl += lvlIncrement;
         state.playerStats.maxLvl += lvlIncrement;
 
         // Reset EXP to 0 and add leftover exp
         state.playerStats.exp = 0 + leftoverExp;
         state.playerStats.exp = Math.round(state.playerStats.exp * 100) / 100;
 
-        // Fetch the "Player Stats" card and leave update in description
+        // Fetch the "Player Stats" card and leave log in description
         const statSC = storyCards.find(sc => sc.title === "Player Stats");
-        statSC.description = `Log ${state.turnCount} | LVL ${level} → ${state.playerStats.lvl}\n` + statSC.description;
+        statSC.description = `Log ${state.turnCount} | LVL ${level} → ${state.playerStats.maxLvl}\n` + statSC.description;
+
+        state.msgHolder = state.msgHolder + `LVL ${level} → ${state.playerStats.maxLvl}\n`;
 
         // Since player has leveled up, increase all max stats
         maxStatKeys.forEach((key) => {
           //Get mod key
           statKey = key.slice(3); // Remove "max"
           modName = statKey.toLowerCase() + "Mod";
-          
+
           // Apply max stat changes
-          if(key == "maxHp"){
-            state.playerStats[key] += 5 + (5 * state.playerModifiers[modName]/100);
+          if (key == "maxHp") {
+            state.playerStats[key] += 5 + (5 * state.playerModifiers[modName] / 100);
           }
-          else if(key == "maxEp"){
-            state.playerStats[key] += 5 + (5 * state.playerModifiers[modName]/100);
+          else if (key == "maxEp") {
+            state.playerStats[key] += 5 + (5 * state.playerModifiers[modName] / 100);
           }
-          else if(key == "maxMp"){
-            state.playerStats[key] += 5 + state.playerStats.intl * 0.1 + (5 * state.playerModifiers[modName]/100);
+          else if (key == "maxMp") {
+            state.playerStats[key] += 5 + state.playerStats.intl * 0.1 + (5 * state.playerModifiers[modName] / 100);
           }
-          else{
-            if(key != 'maxLvl' && key != 'maxExp'){
-              state.playerStats[key] += 5  + (5 * state.playerModifiers[modName]/100);;
+          else {
+            if (key != 'maxLvl' && key != 'maxExp') {
+              state.playerStats[key] += 5 + (5 * state.playerModifiers[modName] / 100);;
             }
           }
 
-          //Two decimal places
-          state.playerStats[key] = Math.round(state.playerStats[key]*100)/100;
+          // Round to two decimal places
+          state.playerStats[key] = Math.round(state.playerStats[key] * 100) / 100;
         });
 
       } // End of level up
     } //end of positive overflow
   }
 
-  storeStatsToSC(); 
+  storeStatsToSC();
 }
 
 function playerNaturalRegen(){
@@ -9254,44 +8926,48 @@ function playerNaturalRegen(){
 }
 
 //Edit text to show player health
-function warnPlayerHealth(text){
+function warnPlayerHealth(text) {
   plrHealth = state.playerStats.hp;
-  plrMaxHealth = state.playerStats.maxHp; 
+  plrMaxHealth = state.playerStats.maxHp;
   plrEnergy = state.playerStats.ep;
   plrMaxEnergy = state.playerStats.maxEp;
   numTurnsDisplay = 5;
-  
-  //warn player every 5 inputs, they have half health
-  if((plrHealth/plrMaxHealth) >= 0.45 && (plrHealth/plrMaxHealth) <= 0.50 && state.inputCount % numTurnsDisplay === 0){
-    text = text + ` ${realizePhrases[randomInt(0,realizePhrases.length-1)]} ${healthFeelsHalfway[randomInt(0,healthFeelsHalfway.length-1)]}.`;
+
+  // Warn player every 5 inputs, they have half health
+  if ((plrHealth / plrMaxHealth) >= 0.45 && (plrHealth / plrMaxHealth) <= 0.50 && state.inputCount % numTurnsDisplay === 0) {
+    text = text + ` ${realizePhrases[randomInt(0, realizePhrases.length - 1)]} ${healthFeelsHalfway[randomInt(0, healthFeelsHalfway.length - 1)]}.`;
   }
-  //Warns at 1% to 10% health
-  else if((plrHealth/plrMaxHealth) >= 0.01 && (plrHealth/plrMaxHealth) <= 0.10 && state.inputCount % numTurnsDisplay === 0){
-    text = text + ` ${realizePhrases[randomInt(0,realizePhrases.length-1)]} ${healthVeryLow[randomInt(0,healthVeryLow.length-1)]}.`;
+  // Warns at 1% to 10% health
+  else if ((plrHealth / plrMaxHealth) >= 0.01 && (plrHealth / plrMaxHealth) <= 0.10 && state.inputCount % numTurnsDisplay === 0) {
+    text = text + ` ${realizePhrases[randomInt(0, realizePhrases.length - 1)]} ${healthVeryLow[randomInt(0, healthVeryLow.length - 1)]}.`;
   }
 
-  //Player Death at 0%
-  if(plrHealth <= 0 && state.inputCount % 2 === 0){
-    text = text + ` Suddenly, ${healthDeathArray[randomInt(0,healthDeathArray.length-1)]} The world continues without you.`;
+  // Player Death at 0%
+  if (plrHealth <= 0 && state.inputCount % 2 === 0) {
+    text = text + ` Suddenly, ${healthDeathArray[randomInt(0, healthDeathArray.length - 1)]} The world continues without you.`;
+
+    state.msgHolder = state.msgHolder + `GAME OVER. You died!\n`;
   }
 
 
-  //Warns every 5 input, at 50% energy
-  if((plrEnergy/plrMaxEnergy) >= 0.45 && (plrEnergy/plrMaxEnergy) <= 0.50 && state.inputCount % numTurnsDisplay === 0){
-    text = text + ` ${realizePhrases[randomInt(0,realizePhrases.length-1)]} ${halfEnergyArray[randomInt(0,halfEnergyArray.length-1)]}`;
-    
+  // Warns every 5 input, at 50% energy
+  if ((plrEnergy / plrMaxEnergy) >= 0.45 && (plrEnergy / plrMaxEnergy) <= 0.50 && state.inputCount % numTurnsDisplay === 0) {
+    text = text + ` ${realizePhrases[randomInt(0, realizePhrases.length - 1)]} ${halfEnergyArray[randomInt(0, halfEnergyArray.length - 1)]}`;
   }
-  //Warns at 1% to 10% energy
-  else if((plrEnergy/plrMaxEnergy) >= 0.01 && (plrEnergy/plrMaxEnergy) <= 0.10 && state.inputCount % numTurnsDisplay === 0){
-    text = text + ` ${realizePhrases[randomInt(0,realizePhrases.length-1)]} ${exhaustedArray[randomInt(0,exhaustedArray.length-1)]}`;
+  // Warns at 1% to 10% energy
+  else if ((plrEnergy / plrMaxEnergy) >= 0.01 && (plrEnergy / plrMaxEnergy) <= 0.10 && state.inputCount % numTurnsDisplay === 0) {
+    text = text + ` ${realizePhrases[randomInt(0, realizePhrases.length - 1)]} ${exhaustedArray[randomInt(0, exhaustedArray.length - 1)]}`;
+
+    state.msgHolder = state.msgHolder + `Your energy is very low. You may want to rest or eat.\n`
 
   }
-  
-  //No energy at 0%
-  if(plrEnergy <= 0 && state.inputCount % 5 === 0){
-    text = text + ` Suddenly, ${exhaustionSleepArray[randomInt(0,exhaustionSleepArray.length-1)]}`; 
-  }
 
+  // No energy at 0%
+  if (plrEnergy <= 0 && state.inputCount % 5 === 0) {
+    text = text + ` Suddenly, ${fullExhaustionArray[randomInt(0, fullExhaustionArray.length - 1)]}`;
+
+    state.msgHolder = state.msgHolder + `You have no energy! Recover by consuming or sleeping.\n`
+  }
 
   return text;
 }
@@ -9491,14 +9167,14 @@ function storeInvToSC(){
   return true;
 }
 
-//RETRIEVE inv data from sc
+// RETRIEVE inv data from sc
 function retrieveInvFromSC(){
   // Fetch the "Player Inventory" card
   const invSC = storyCards.find(sc => sc.title === "Player Inventory");
 
-  //get inv sc entry
+  // Get inv sc entry
   fromInvSC = invSC.entry;
-  log("fromInvSC: " + fromInvSC);
+  //log("fromInvSC: " + fromInvSC);
 
   // Use regex to extract item names and amounts (Ex: Ball (Amt: 2), etc. )
   matches = fromInvSC.matchAll(/(.+?)\s*\(.*?(\d+(?:\.\d+)?).*?\)/g);
@@ -9506,85 +9182,94 @@ function retrieveInvFromSC(){
   itemHold = [];
   amtHold = [];
   for (const match of matches) {
+    // Do not extract 0 amt items
+    if(match[2] != 0){
     itemHold.push(match[1].trim()); // Extract item name to holder
     amtHold.push(Number(match[2])); // Extract amount as integer to holder2
+    }
   }
 
-  //Store retrieved data to codebase 
+  // Store retrieved data to codebase 
   state.playerInv.item = itemHold;
   state.playerInv.amt = amtHold;
-  //console.log("Items:", state.playerInv.item);
-  //console.log("Amounts:", state.playerInv.amt);
+
+  log("state.playerInv.item: " + state.playerInv.item);
+  log("state.playerInv.amt: " + state.playerInv.amt);
 }
 
-//Detect when the player stores item and amt to their inventory
-function detectStoreInv(text){
+// Detect when the player stores item and amt to their inventory
+function detectStoreInv(text) {
+  // Initialize condition var
   startEquip = false;
 
   // Verify player is not dialoguing (case-insensitive)
   dialogueCheck = true;
-  textLower = text.toLowerCase();
   dialoguePhrases.forEach(phrase => {
-    if(textLower.includes(phrase.toLowerCase())){
+    if (text.toLowerCase().includes(phrase.toLowerCase())) {
       // Disable check dialoguing exists
       dialogueCheck = false;
     }
   });
 
-  //If not a dialogue, check for inventory words in input then split text into words arr
-  if(dialogueCheck == true){
+  // If not a dialogue, check for inventory words in input then split text into words arr
+  if (dialogueCheck == true) {
     equipTextInput = [];
-    equipTextInput = findTargetsThenSplit(text,invWords,equipTextInput,true);
+    processedText = wordsToNumber(text);
+    equipTextInput = findTargetsThenSplit(processedText, invWords, equipTextInput, true);
     //equipTextInput = findTargetsThenSplit(text,equipWords,equipTextInput,true);
-    console.log("equipTextInput: " + equipTextInput);
-  
+    log("equipTextInput: " + equipTextInput);
 
-    //If there are inventory words, check for "you equip" in words arr using indices
-    if(equipTextInput != null){
+
+    // If there are inventory words, check for "you equip" in words arr using indices
+    if (equipTextInput != null) {
       //Get indices of all equip words in words arr
       allEquipWordIndices = [];
-      allEquipWordIndices = indicesOfTargets(equipTextInput,equipWords);
+      allEquipWordIndices = indicesOfTargets(equipTextInput, equipWords);
       log("allEquipWordIndices: " + allEquipWordIndices);
-    
 
-      //If "you" is found within x indices of equip words, start equip process
-      if(allEquipWordIndices != null){
-        startEquip = checkYouBeforeIndicesArr(equipTextInput,allEquipWordIndices,3) || checkAndBeforeIndicesArr(equipTextInput,allEquipWordIndices,2);
-        log("startEquip:" + startEquip); 
+
+      // If "you" is found within x indices of equip words, start equip process
+      if (allEquipWordIndices != null) {
+        startEquip = checkYouBeforeIndicesArr(equipTextInput, allEquipWordIndices, 3) || checkAndBeforeIndicesArr(equipTextInput, allEquipWordIndices, 2);
+        log("startEquip:" + startEquip);
       }
     }
   }
 
-  //Start equip process when "you equip + inventory" is found in words arr
-  if(startEquip == true){
-    //Create an arr to store filtered words
-    likelyItemNames = equipTextInput;
+  // Start equip process when "you equip + inventory" is found in words arr
+  if (startEquip == true) {
+    // Initialize arrays for potential items from filtered input
+    potentialItem = {
+      tokens: [],
+      indices: [],
+      weights: []
+    };
 
-    //Filter words that arent likely item names
-    likelyItemNames = equipTextInput.filter(word => 
-    ![...stopWords, ...equipWords,...talentWords,...dodgeWords,...castWords,...learnWords,...invWords,...numWords,...youWords,...selfWords,...consumeWords,...titleWords].some(fromArr => fromArr.toLowerCase() === word.toLowerCase())
+    // Filter out words that arent potential items
+    potentialItem.tokens = equipTextInput.filter(word =>
+      ![...stopWords, ...equipWords, ...talentWords, ...dodgeWords, ...castWords, ...learnWords, ...invWords, ...numWords, ...youWords, ...selfWords, ...consumeWords, ...titleWords].some(fromArr => fromArr.toLowerCase() === word.toLowerCase())
     );
-    console.log("likelyItemNames: " + likelyItemNames);
+    potentialItem.tokens = potentialItem.tokens.filter(word => !/^\d+$/.test(word));
+    log("potentialItem.tokens: " + potentialItem.tokens);
 
-    //If filtering didnt empty the words arr, start computing text item probability using weights
-    if(likelyItemNames.length > 0){
-      //Get likely item names indices/location from player text
-      indicesLikelyItem = indicesOfTargets(equipTextInput,likelyItemNames);
+    if (potentialItem.tokens.length > 0) {
+      // Get potential item indices from unfiltered input text
+      potentialItem.indices = indicesOfTargets(equipTextInput, potentialItem.tokens);
 
-      //remove duplicate indices
-      indicesLikelyItem = [...new Set(indicesLikelyItem)];
-      log("indicesLikelyItem: " + indicesLikelyItem);
+      // Remove duplicate indices
+      potentialItem.indices = [...new Set(potentialItem.indices)];
+      log("potentialItem.indices: " + potentialItem.indices);
 
-      //Initialize weight array to hold 0 for the length of likelyitemnames because both arr are related
-      itemNameWeights = [];
-      indicesLikelyItem.forEach(word => {itemNameWeights.push(0);});
-      //log("itemNameWeights: " + itemNameWeights);
+      // Initialize weight array to hold 0 for each potential item token
+      potentialItem.weights = [];
+      potentialItem.indices.forEach(word => { potentialItem.weights.push(0); });
+      //log("potentialItem.weights: " + potentialItem.weights);
 
-      //get all indices of biased words in text, set to [] if null to avoid errors
+      // Get all indices of biased words in text, set to [] if null to avoid errors
       allEquipWordIndices = allEquipWordIndices || [];
       invWordIndices = indicesOfTargets(equipTextInput, invWords) || [];
-      numIndices = indicesOfTargets(equipTextInput, numWords) || [];
-      fromIndices = indicesOf(equipTextInput,"from") || [];
+      numIndices = getDigitIndices(equipTextInput) || [];
+      fromIndices = indicesOf(equipTextInput, "from") || [];
       theIndices = indicesOf(equipTextInput, "the") || [];
       aIndices = indicesOf(equipTextInput, "a") || [];
       anIndices = indicesOf(equipTextInput, "an") || [];
@@ -9594,143 +9279,351 @@ function detectStoreInv(text){
       andIndices = indicesOf(equipTextInput, "and") || [];
       itIndices = indicesOf(equipTextInput, "it") || [];
       itsIndices = indicesOf(equipTextInput, "its") || [];
-      themIndices = indicesOf(equipTextInput,"them") || [];
+      themIndices = indicesOf(equipTextInput, "them") || [];
+      thatIndices = indicesOf(equipTextInput, "that") || [];
+      thenIndices = indicesOf(equipTextInput, "then") || [];
 
-      //Take each likelyItem and weigh them using conditions to deduce actual item, the indices can be used to compare distance in the plr sentence
-
-      //If item is after an equip word (Ex: You place sword)
+      // Weigh each token based on distance before or after biased words
+      // If token is near an "equip word"
       if (allEquipWordIndices.length > 0) {
-        isAfterIndex(indicesLikelyItem, allEquipWordIndices, 0, 3, 2, itemNameWeights);
-        isAfterIndex(indicesLikelyItem, allEquipWordIndices, 4, 5, 1.5, itemNameWeights);
-        isAfterIndex(indicesLikelyItem, allEquipWordIndices, 6, 10, 0.5, itemNameWeights);
+        // Ex: You place sword
+        isAfterIndex(potentialItem.indices, allEquipWordIndices, 0, 3, 2.5, potentialItem.weights);
+        isAfterIndex(potentialItem.indices, allEquipWordIndices, 4, 5, 1.5, potentialItem.weights);
+        isAfterIndex(potentialItem.indices, allEquipWordIndices, 6, 10, 0.5, potentialItem.weights);
       }
 
-      //If item is before an inventory word
+      // If token is near an "inventory word"
       if (invWordIndices.length > 0) {
-        //first 2 words before inv likely "in your" bag
-        isBeforeIndex(indicesLikelyItem, invWordIndices, 0, 2, 0.5, itemNameWeights);
-        isBeforeIndex(indicesLikelyItem, invWordIndices, 2, 4, 2, itemNameWeights);
-        isBeforeIndex(indicesLikelyItem, invWordIndices, 5, 6, 1.5, itemNameWeights);
-
+        // First 2 words before inv likely "in your" bag (Ex: ...sword in your bag)
+        isBeforeIndex(potentialItem.indices, invWordIndices, 0, 2, -2.5, potentialItem.weights);
+        isBeforeIndex(potentialItem.indices, invWordIndices, 2, 4, 2, potentialItem.weights);
+        isBeforeIndex(potentialItem.indices, invWordIndices, 5, 6, 1.5, potentialItem.weights);
       }
 
-      //If item is after number
+      // If token is near "number"
       if (numIndices.length > 0) {
-        isAfterIndex(indicesLikelyItem, numIndices, 0, 5, 2, itemNameWeights);
+        // Ex: take 1 sword
+        isAfterIndex(potentialItem.indices, numIndices, 0, 3, 2.5, potentialItem.weights);
       }
 
-      //If item is after the
+      // If token is near "the" 
       if (theIndices.length > 0) {
-        isAfterIndex(indicesLikelyItem, theIndices, 0, 4, 2, itemNameWeights);
+        // Ex: take the sword
+        isAfterIndex(potentialItem.indices, theIndices, 0, 4, 2.5, potentialItem.weights);
       }
-      //If item is before from
-      if(fromIndices.length > 0){
-        isBeforeIndex(indicesLikelyItem,fromIndices, 0, 2, 1, itemNameWeights);
-        isBeforeIndex(indicesLikelyItem,fromIndices, 3, 4, 0.5, itemNameWeights);
+
+      // If token is near "from"
+      if (fromIndices.length > 0) {
+        // Ex: take sword from
+        isBeforeIndex(potentialItem.indices, fromIndices, 0, 2, 1, potentialItem.weights);
+        isBeforeIndex(potentialItem.indices, fromIndices, 3, 4, 0.5, potentialItem.weights);
+
+        isAfterIndex(potentialItem.indices, fromIndices, 0, 3, -2, potentialItem.weights);
 
       }
-      //If item is after a or an
+      // If token is near "a/an"
       if (aIndices.length > 0 || anIndices.length > 0) {
-        isAfterIndex(indicesLikelyItem, aIndices,0, 4, 1.5, itemNameWeights);
-        isAfterIndex(indicesLikelyItem, anIndices,0, 4, 1.5, itemNameWeights);
+        // Ex: take a sword
+        isAfterIndex(potentialItem.indices, aIndices, 0, 4, 1.5, potentialItem.weights);
+        isAfterIndex(potentialItem.indices, anIndices, 0, 4, 1.5, potentialItem.weights);
       }
 
-      //If item is after of
+      // If token is near "of" 
       if (ofIndices.length > 0) {
-        //Ex: "Take 3 of the apples"
-        isAfterIndex(indicesLikelyItem, ofIndices, 0, 1, 0.5, itemNameWeights);
-        isAfterIndex(indicesLikelyItem, ofIndices, 2, 4, 1, itemNameWeights);
+        // Ex: take 3 of the swords
+        isAfterIndex(potentialItem.indices, ofIndices, 0, 1, 0.5, potentialItem.weights);
+        isAfterIndex(potentialItem.indices, ofIndices, 2, 4, 1, potentialItem.weights);
       }
 
-      //If item is before in or into
+      // If token is near "in/into"  
       if (inIndices.length > 0 || intoIndices.length > 0) {
-        isBeforeIndex(indicesLikelyItem, inIndices,0, 8, 1, itemNameWeights);
-        isBeforeIndex(indicesLikelyItem, intoIndices,0, 8, 1, itemNameWeights);
+        // Ex: take sword and put in
+        isBeforeIndex(potentialItem.indices, inIndices, 0, 8, 1, potentialItem.weights);
+        isBeforeIndex(potentialItem.indices, intoIndices, 0, 8, 1, potentialItem.weights);
+
+        isAfterIndex(potentialItem.indices, inIndices, 0, 3, -2, potentialItem.weights);
       }
 
-      //If item is before and
+      // If token is near "and"
       if (andIndices.length > 0) {
-        isBeforeIndex(indicesLikelyItem, andIndices, 0, 3, 1, itemNameWeights);
-        (indicesLikelyItem, andIndices, 4, 6, 0.5, itemNameWeights);
+        // Ex: sword, gun, and shield
+        isBeforeIndex(potentialItem.indices, andIndices, 0, 3, 1, potentialItem.weights);
+        isBeforeIndex(potentialItem.indices, andIndices, 4, 6, 0.5, potentialItem.weights);
+
+        isAfterIndex(potentialItem.indices, andIndices, 0, 3, 1.5, potentialItem.weights);
 
       }
 
-      //if item is before it or its
+      // If token is near "it/its"
       if (itIndices.length > 0 || itsIndices.length > 0) {
         //Ex: "apple and put it"
-        isBeforeIndex(indicesLikelyItem, itIndices, 0,3, 0.5, itemNameWeights);
-        isBeforeIndex(indicesLikelyItem, itsIndices, 4,8, 1.5, itemNameWeights);
+        isBeforeIndex(potentialItem.indices, itIndices, 0, 3, -1, potentialItem.weights);
+        isBeforeIndex(potentialItem.indices, itsIndices, 4, 8, 1.5, potentialItem.weights);
+
+        isAfterIndex(potentialItem.indices, itsIndices, 0, 3, -2, potentialItem.weights);
       }
 
-      //If item is before "them"
-      if(themIndices.length > 0){
-        //Ex: "and put them"
-        isBeforeIndex(indicesLikelyItem, themIndices, 0,3, 0.5, itemNameWeights);
-        isBeforeIndex(indicesLikelyItem, themIndices, 4,8, 1.5, itemNameWeights);
-      }
-      log("itemNameWeights: " + itemNameWeights);
+      // If token is near "them"
+      if (themIndices.length > 0) {
+        // Ex: "and put them"
+        isBeforeIndex(potentialItem.indices, themIndices, 0, 3, -1.5, potentialItem.weights);
+        isBeforeIndex(potentialItem.indices, themIndices, 4, 8, 1.5, potentialItem.weights);
 
-      //The words with the most weight is likely part of the item name.
-      //Initialize, will be used to hold multiple strings
+        isAfterIndex(potentialItem.indices, themIndices, 0, 2, -2, potentialItem.weights);
+      }
+
+      // If token is near "that"
+      if (thatIndices.length > 0) {
+        // Ex: take that apple
+        isAfterIndex(potentialItem.indices, thatIndices, 0, 3, 1.5, potentialItem.weights);
+      }
+
+      // If token is near "then"
+      if (thenIndices.length > 0) {
+        // Ex: take the sword then the apple
+        isAfterIndex(potentialItem.indices, thenIndices, 0, 3, 1.5, potentialItem.weights);
+
+        isBeforeIndex(potentialItem.indices, thenIndices, 0, 3, 1.5, potentialItem.weights);
+      }
+      log("potentialItem.weights: " + potentialItem.weights);
+
+      // Initialize holder for item tokens
       itemNameParts = [];
-      
-      //If weights in array pass threshold, push their respective name parts to a holder to join into final item string
-      itemNameWeights.forEach((weight,index)=>{
-        if(weight >= 4){
-          itemNameParts.push(likelyItemNames[index]);
+
+      // Find last index that passes weight threshold to know when last item tokens will be stored
+      for (let i = potentialItem.weights.length - 1; i >= 0; i--) {
+        if (potentialItem.weights[i] >= 4) {
+          lastWeightIndex = i;
+          break;
+        }
+      }
+
+      // Push potential items into holder if they pass weight threshold
+      potentialItem.weights.forEach((weight, index) => {
+        if (weight >= 4) {
+          itemNameParts.push(potentialItem.tokens[index]);
           log("itemNameParts: " + itemNameParts);
 
-          //Get the item amt index determined by proximity to item name from plr sentence if it exists
-          finalItemAmtIndex = findClosestNumberIndex(equipTextInput,indicesLikelyItem[index]); //returns -1 if no numbers exist 
-          log("finalItemAmtIndex: " + finalItemAmtIndex);
+          // Slice text chunk at potential item index for end of item testing
+          textChunk = processedText.replace(">", "")
+            .trim()
+            .split(" ")
+            .slice(potentialItem.indices[index], potentialItem.indices[index] + 2)
+            .join(" ");
+          log("textChunk: " + textChunk);
 
+          // Test for end of item name to join and store item from holder
+          pattern = new RegExp(`\\b${potentialItem.tokens[index]}\\b\\s*(,|and|\\.)`, 'i');
+          itemEnd = textChunk.search(pattern);
+          log("itemEnd: " + itemEnd);
+
+          if (itemEnd !== -1 || index == lastWeightIndex) {
+            // Combine item name parts into final item name
+            finalItemName = itemNameParts.join(" ");
+            log("finalItemName: " + finalItemName);
+
+            // Clear the array after item is stored for next possible item
+            itemNameParts = [];
+
+            // Get item amt
+            itemAmt = findClosestNumberBefore(equipTextInput, potentialItem.indices[index]);
+
+            if (!itemAmt) {
+              itemAmt = 1;
+            }
+
+            // Get index if already existing item in player inv 
+            alreadyItemIndex = [];
+            alreadyItemIndex = indicesOf(state.playerInv.item, finalItemName);
+
+            // Increment item amt if already existing in inv
+            if (alreadyItemIndex) {
+              state.playerInv.amt[alreadyItemIndex] += itemAmt;
+
+              // Log to messages
+              state.msgHolder = state.msgHolder + `🎒 +${itemAmt} ${state.playerInv.item[alreadyItemIndex]}\n`;
+
+
+              // Fetch the "Player Inventory" card and log
+              const invSC = storyCards.find(sc => sc.title === "Player Inventory");
+              invSC.description = `Log ${state.turnCount} | +${itemAmt} ${state.playerInv.item[alreadyItemIndex]}\n` + invSC.description;
+            }
+            else {
+              // Else new item is stored
+              state.playerInv.item.push(finalItemName);
+              state.playerInv.amt.push(itemAmt);
+
+              // Log to msg
+              state.msgHolder = state.msgHolder + `🎒 +${itemAmt} ${finalItemName}\n`;
+
+              // Fetch the "Player Inventory" card and log
+
+              const invSC = storyCards.find(sc => sc.title === "Player Inventory");
+              invSC.description = `Log ${state.turnCount} | +${itemAmt} ${finalItemName}\n` + invSC.description;
+            }
+          }
         }
       });
-      
-      //If items pass the weighting, finalize item to store
-      if(itemNameParts.length > 0){
-        //After get item name parts, join into a single final item name string
-        itemNameFinal = itemNameParts.join(" "); //string
-        log("itemNameFinal: " + itemNameFinal);
 
-        //Verify the final item amt
-        //Default item amt if amt isnt mentioned by plr
-        if(finalItemAmtIndex == -1){
-          amtFinal = 1;
-        }else{
-          //If item amt was specified and found
-          amtFinal = Number(equipTextInput[finalItemAmtIndex]);
-        }
-        log("amtFinal: " + amtFinal);
+      //Update SC
+      storeInvToSC();
 
-        //Finally, check player inventory if item already exists and get its index
-        alreadyItemIndex = [];
-        alreadyItemIndex = indicesOf(state.playerInv.item,itemNameFinal);
-        log("alreadyItemIndex: " + alreadyItemIndex);
-        //If player already has item, increment item amt
-        if(alreadyItemIndex){
-          state.playerInv.amt[alreadyItemIndex] += amtFinal;
+      return text = text + ` ${itemGainPhrases[randomInt(0,itemGainPhrases.length-1)]}`;
+
+    }//end of potentialItem.tokens.length
+
+  }//end of startEquip
+
+  return text;
+}
+
+// Detect when player gives away an item
+function detectGiving(text) {
+  // Initialize condition
+  startGiving = false;
+
+  // Verify player is not dialoguing (case-insensitive)
+  dialogueCheck = true;
+  dialoguePhrases.forEach(phrase => {
+    if (text.toLowerCase().includes(phrase.toLowerCase())) {
+      // Disable check dialoguing exists
+      dialogueCheck = false;
+    }
+  });
+
+  // Check for give words in the text and split the input
+  if (dialogueCheck == true) {
+    givingTextInput = [];
+    processedText = wordsToNumber(text);
+    givingTextInput = findTargetsThenSplit(processedText, giveWords, givingTextInput, true);
+    log("givingTextInput simplified: " + givingTextInput);
+
+    // Get all give word indices from input
+    if (givingTextInput != null) {
+      allGiveWordIndices = [];
+      allGiveWordIndices = indicesOfTargets(givingTextInput, giveWords);
+      log("allGiveWordIndices:" + allGiveWordIndices);
+
+      // Check if the input contains "you/and + give" then unlock execution
+      if (allGiveWordIndices != null) {
+        startGiving = checkYouBeforeIndicesArr(givingTextInput, allGiveWordIndices, 3) || checkAndBeforeIndicesArr(givingTextInput, allGiveWordIndices, 2);
+        log("startGiving: " + startGiving);
+      }
+    }
+  }
+
+  // Input meets requirements, execute giving
+  if (startGiving) {
+    itmInputIndices = [];
+    itmInputAmts = [];
+    itmInvIndices = [];
+
+    // Loop through each plr item to check if item is called in input
+    state.playerInv.item.forEach((itm, index) => {
+      // Split itm parts for multi worded itms
+      itmParts = itm.toLowerCase().split(" ");
+
+      // Loop through each word in input and check for full item match
+      for (let i = 0; i <= givingTextInput.length - itmParts.length; i++) {
+        match = true;
+
+        // Checking for full item match (case and plural insensitive)
+        for (let j = 0; j < itmParts.length; j++) {
+          if (itmParts[j] !== givingTextInput[i + j].toLowerCase()
+            && itmParts[j] + 's' !== givingTextInput[i + j].toLowerCase()) {
+            match = false;
+            break;
+          }
         }
-        else{ //If player doesnt have the item
-          //new items are added to inventory
-          state.playerInv.item.push(itemNameFinal);
+
+        // Item is matched
+        if (match) {
+          // Store first part index from input in array
+          itmInputIndices.push(i);
+
+          // Get item amt from input and store in array
+          itmAmt = findClosestNumberBefore(givingTextInput, i) ?? 1;
+          itmInputAmts.push(itmAmt);
+
+          // Save item index from inv in array
+          itmInvIndices.push(index);
+        }
+      }
+
+    });
+    log("itmInputIndices: " + itmInputIndices);
+    log("itmInputAmts: " + itmInputAmts);
+    log("itmInvIndices: " + itmInvIndices);
+
+    giveFlavorText = [];
+    failFlavorText = [];
+    zeroAmtArr = [];
+
+    // Player has called item
+    if (itmInputIndices.length > 0) {
+      // Loop through each itm called 
+      itmInputIndices.forEach((itm, index) => {
+        // Player has enough item amount in inv
+        if (state.playerInv.amt[itmInvIndices[index]] >= itmInputAmts[index]) {
+          // Subtract item amt from inventory
+          state.playerInv.amt[itmInvIndices[index]] = state.playerInv.amt[itmInvIndices[index]] - itmInputAmts[index];
+
+          // Fetch SC and log
+          const invSC = storyCards.find(sc => sc.title === "Player Inventory");
+          invSC.description = `Log ${state.turnCount} | -${itmInputAmts[index]} ${state.playerInv.item[itmInvIndices[index]]}\n` + invSC.description;
+
+          // Log to messages
+          state.msgHolder = state.msgHolder + `🫴 -${itmInputAmts[index]} ${state.playerInv.item[itmInvIndices[index]]}\n`
+
+          // Store item to flavor text array
+          giveFlavorText.push(state.playerInv.item[itmInvIndices[index]]);
           
-          //Corresponding new item amts
-          state.playerInv.amt.push(amtFinal);
+          storeInvToSC();
+
         }
+        // Player doesnt have enough item amount in inv
+        else {
+          failFlavorText.push(state.playerInv.item[itmInvIndices[index]]);
+        }
+      });
+    }
+    log("giveFlavorText: " + giveFlavorText);
+    log("failFlavorText: " + failFlavorText);
 
-        //Update inv sc
-        storeInvToSC();
+    // Execute giving flavor text
+    if (giveFlavorText.length > 0) {
+      text = text + ` The ${giveFlavorText.join(", ")} leaves your inventory.`
+    }
+    if (failFlavorText.length > 0) {
+      text = text + ` You realize you don't have enough ${failFlavorText.join(", ")}.`
+    }
 
-        //TODO: Diversify text appendment
-        return text = text + " It remains in your possession."
+    // Unlock Context Hook feed to influence AI to reject lack of items or wrong items to give
+    allItems = [];
+    state.playerInv.item.forEach((itm, index) => {
+      allItems.push(`${state.playerInv.amt[index]} ${state.playerInv.item[index]}`);
+    })
+    allItems = allItems.join(", ");
 
-      }//end of finalize item
+    state.invCheckText = ` You realize you have nothing in your inventory but only ${allItems}. You anticipate failure for not having the right items or amount.`
 
-    }//end of filtered array not empty
+    state.unlockInvToContext = true;
+    log("state.unlockInvToContext: " + state.unlockInvToContext);
+
+  }//end of startgiving
+
+  return text;
+}
+
+// Succeeding function for detectGiving, sends the inventory and rejection check text to AI on context hook
+function feedInvToContext(text){
+  if(state.unlockInvToContext){
+    text = text + state.invCheckText;
+    log("state.invCheckText: " + state.invCheckText);
+  }
   
-  }//end of start equip
-  
+  state.unlockInvToContext = false;
+
   return text;
 }
 
