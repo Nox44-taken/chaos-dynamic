@@ -389,12 +389,13 @@ for (const pattern of patterns) {
 
 
  storeCurrToSC();
-  return {
-    text: result.text,
-    stop: result.stop
-  };
+ let finText = [ modifiedText, result.text].filter(Boolean).join("\n");
 
+return { text: finText, 
+         stop: result.stop
+  };
 };
+
 // === AutoCards with Reputation Filter Built-in ===
 
 
