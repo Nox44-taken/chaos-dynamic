@@ -92,13 +92,13 @@ This scenario is a freeform demo of the ReputeX system. Let the player's persona
     text
   ].join("\n\n");
 
-  return {
-    text: contextText + result.text,
-    stop: stop + result.stop
-   
+let coText = [contextText, result.text].filter(Boolean).join("\n");
+let coStop = [stop, result.stop].filter(Boolean).join(", ");
 
+return {
+  text: coText,
+  stop: coStop
   };
-
 };
 
 
