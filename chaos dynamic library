@@ -12335,7 +12335,7 @@ const PERSONAL_REP_PATTERNS = [
   { regex: /\b(bullies?|abuses? power|shouts? others down|acts tyrannical|oversteps? bounds|ignores? advice|rejects? help|makes? arbitrary rule|forces? submission)\b/i, changes: { Dominant: -1 } },
 
   // === 🙇 Submissive (positive & negative) ===
-  { regex: /\b(follow(?:s|ed)?|submit(?:s|ted)?|obey(?:s|ed)?|defer(?:s|red)?|yield(?:s|ed)?|agrees? softly|backs? down|accept(?:s|ed)? direction|reluctant(?:ly)? agrees?|tears up|lowers gaze|nods silently|quietly agrees|lets them win|whispers consent|backs off|lets? others decide|sits? quietly|bows? head|lets? someone else speak|agrees? with hesitation|steps? aside|asks? for permission)\b/i, changes: { Submissive: 5, Dominant: -1 } },
+  { regex: /\b(follow(?:s|ed)?|submit(?:s|ted)?|obey(?:s|ed)?|yield(?:s|ed)?|agrees? softly|backs? down|accept(?:s|ed)? direction|reluctant(?:ly)? agrees?|tears up|lowers gaze|nods silently|quietly agrees|lets them win|whispers consent|backs off|lets? others decide|sits? quietly|bows? head|lets? someone else speak|agrees? with hesitation|steps? aside|asks? for permission)\b/i, changes: { Submissive: 5, Dominant: -1 } },
   // Submissive, era/setting flavor
   { regex: /\b(bows? deeply|serves? tea|offers? seat|waits? their turn|accepts? their role|kneels?|curtsies?|removes? hat respectfully|humbles? themselves|asks? to be excused)\b/i, changes: { Submissive: 5 } },
   // Submissive (negative/antithetical)
@@ -13066,7 +13066,7 @@ function scanReputation(text) {
     Charmer: ['flirt','compliment','admire'],
     Rogue: ['sneak','break','dare'],
     Dominant: ['lead','decide','command'],
-    Submissive: ['follow','yield','defer'],
+    Submissive: ['follow','yield'],
     Prankster: ['prank','joke','tease']
   };
   const lc = text.toLowerCase();
