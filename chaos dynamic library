@@ -6725,11 +6725,43 @@ selfWords = ["me", "my", "myself", "mine", "your", "yourself", "yours", "us", "o
 ];
 
 castWords = [
-  "bind", "cast", "casting", "channel", "channeling", "command", "conjure", 
-  "enchant", "enchanting", "evoke", "expel", "exude", "flare", "glow", "harness", "hex", "infuse", "invoke", "invoking", "manifest", "project", "projecting", "pulse", "quicken", "release", "shape", "summon", "summoning", "transmute", "unbind", "unleash"
+  "activate", "amplify", "bind", "blast", "boost", "burst", "cast", "casting", "channel", "charge", "channeling", "command", "commanding", "conjure", 
+  "create", "creating", "detonate", "enchant", "enchanting", "evoke", "explode", 
+  "expel", "exude", "flare", "flow", "form", "gather", "gathering", "glow", "harness", "hex", "ignite", "infuse", "invoke", "invoking", "launch", "manifest", "project", "projecting", "pulse", "perform", "quicken", "release", "shape", "shift", "summon", "summoning", "transform", "transforming", "transmute", "trigger", "unbind", "unleash"
 ];
 
-talentWords = ["build", "barter", "cook", "craft", "fish", "forge", "operate", "repair", "scavenge", "sneak", "convince", "manipulate" , "shoot" , "steal" , "perform"];
+talentWords = [
+  // Combat / Stealth
+  "ambush", "argue", "bluff", "confuse", "counterfeit", "deceive", "defend", "disarm", "extinguish",
+  "intimidate", "jam", "lockpick", "neutralize", "pierce", "scare", "snipe", "sneak", "snare", "spy", "steal", "shoot", "shooting",
+
+  // Crafting / Construction
+  "assemble", "barter", "bind", "boobytrap", "brew", "brewmaster", "build", "butcher", "camber", "camouflage", "carve",
+  "channel", "chisel", "clean", "compose", "concoct", "craft", "debug", "decrypt", "decipher", "distill", "dismantle",
+  "engineer", "engrave", "fabricate", "fasten", "filter", "fletch", "forge", "frame", "glaze", "grind", "harness",
+  "identify", "imitate", "inlay", "inscribe", "insulate", "invert", "knit", "launder", "leverage", "liquefy", "mark",
+  "mason", "mend", "mix", "mold", "muffle", "optimize", "patch", "polish", "pressurize", "prime", "process", "program",
+  "purify", "quench", "reconstruct", "recycle", "refine", "reinforce", "remix", "repair", "reverse", "rivet", "salvage",
+  "scribe", "seal", "sealant", "sharpen", "simulate", "sketch", "smelt", "smith", "smudge", "stabilize", "synchronize",
+  "tailor", "temper", "tie", "tinker", "treat", "trace", "transmute", "trap", "tune", "upcycle", "vacuum", "vent",
+  "wash", "weave", "weld", "weld-seal", "whittle",
+
+  // Exploration / Movement
+  "balance", "climb", "drive", "eavesdrop", "empathize", "explore", "fish", "fly", "forage", "gauge", "harvest",
+  "hunt", "intercept", "map", "mine", "navigate", "operate", "orchestrate", "override", "ride", "scavenge", "search",
+  "secure", "stow", "sustain", "tag", "track", "transfer", "traverse", "use", "wield", "wrangle",
+
+  // Social / Mental
+  "appraise", "arbitrate", "communicate", "claim", "convince", "coordinate", "describe", "diagnose", "empathize",
+  "evaluate", "gesture", "justify", "mediate", "memorize", "overhear", "perceive", "persuade", "present", "procure",
+  "reveal", "soothe", "simulate", "scribe", "verify",
+
+  // Technical / Scientific
+  "calculate", "debug", "decrypt", "diagnose", "engineer", "fabricate", "filter", "invert", "jam", "leverage", "liquefy", "map",
+  "optimize", "orchestrate", "patch", "process", "program", "purify", "quench", "reconstruct", "recycle", "refine",
+  "reinforce", "remix", "repair", "reverse", "salvage", "sealant", "simulate", "synchronize", "tag", "tinker",
+  "transmute", "upcycle", "vacuum", "vent", "weld", "weld-seal",
+];
 
 learnWords = [
   "learn", "learning", "practice", "practicing", "spend time", "study", "studying", "train", "training", "read", "reading", "focus", "find", "research", "researching"
@@ -6742,6 +6774,20 @@ equipWords = [
 invWords = [
   "bag", "backpack", "body", "case", "chest", "collection",  "container", "crates", "equipment", "hands", "hand", "holder", "holdings", "inventory", "items", "legs", "loot", "pack", "pocket", "pouch", "sack", "satchel", "storage", "supplies", "tote", "wallet"
 ];
+
+const itemGainPhrases = [
+  "It enters your possession.",
+  "It holds there.",
+  "You now have it.",
+  "It's now yours.",
+  "It sits tight in your inventory.",
+  "It sits securely in your inventory.",
+  "It lays among your belongings.",
+  "It becomes part of your inventory.",
+  "It now belongs to you."
+];
+
+giveWords = ["deliver", "fork", "gift", "give", "hand", "pay", "sell", "toss"];
 
 numWords = [
   "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
@@ -7953,6 +7999,273 @@ const harnessSkill = [
   "You force [Skill] into a quicker form, with successful execution."
 ];
 
+const talentPower1 = [
+  "Your inexperience with [Talent] is a bewilderment to all.",
+  "You kind of fumble with your [Talent].",
+  "Your [Talent] attempt is a bit clumsy and awkward, barely making the mark.",
+  "You somewhat struggle with [Talent].",
+  "You scratch the surface of [Talent], barely making it work.",
+  "Your attempt at [Talent] seems improvised and shaky.",
+  "You poke around with [Talent].",
+  "Your nerves show a bit in your [Talent].",
+  "Your [Talent] produces something...",
+  "You try to apply [Talent], hoping something works.",
+  "It appears your [Talent]... exists. ",
+  "You try your hand at [Talent], but it comes a bit crude.",
+  "Some experience shows with your [Talent]",
+  "Your [Talent] is novice."
+];
+
+const talentPower2 = [
+  "Your [Talent] gets the job done—just barely.",
+  "You manage to use [Talent] with shaky hands.",
+  "Your [Talent] shows promise, though not much polish.",
+  "You produce something functional with your [Talent].",
+  "There's a glimmer of competence in your [Talent].",
+  "Your [Talent] isn't impressive, but it works.",
+  "You apply [Talent] with a touch of uncertainty.",
+  "Your [Talent] results in something usable, if unimpressive.",
+  "You lean on your [Talent], and it holds... for now.",
+  "You wobble through [Talent] but reach the end.",
+  "Your [Talent] just about meets expectations.",
+  "You coax [Talent] into doing what you need, barely."
+];
+
+const talentPower3 = [
+  "You use your [Talent] with growing control.",
+  "There’s a steady rhythm to your [Talent].",
+  "You manage [Talent] with noticeable improvement.",
+  "You bring out a solid result through your [Talent].",
+  "Your [Talent] begins to feel more natural.",
+  "You apply [Talent] with basic but visible skill.",
+  "You focus, and your [Talent] meets the task.",
+  "Your [Talent] produces something respectable.",
+  "You get the hang of [Talent], bit by bit.",
+  "Your [Talent] speaks of effort and growing experience.",
+  "You’re beginning to trust your [Talent] more.",
+  "Your [Talent] shows good instinct, even if rough."
+];
+
+const talentPower4 = [
+  "Your [Talent] is almost average.",
+  "You apply [Talent] with practiced ease.",
+  "Your [Talent] yields a capable result.",
+  "You control your [Talent] with steady hands.",
+  "There’s some confidence in the way you wield [Talent].",
+  "You navigate the task through [Talent] with some experience.",
+  "You focus on precision, and your [Talent] follows.",
+  "Your [Talent] comes across as mid.",
+  "Your [Talent] comes across as confident, if a bit stiff.",
+  "You deliver results through [Talent] that start to feel deliberate.",
+  "The [Talent] process is steady, if not yet graceful.",
+  "Your [Talent] shows some finesse."
+];
+
+const talentPower5 = [
+  "You channel your [Talent] with average power and direction.",
+  "Your [Talent] comes through with some clarity.",
+  "You make good use of [Talent].",
+  "Your [Talent] delivers an average impression.",
+  "There’s energy and structure in your [Talent].",
+  "You tackle the task head-on with your [Talent].",
+  "Your [Talent] delivers results that others would notice.",
+  "You take confident action using [Talent].",
+  "Your [Talent] flares briefly but effectively.",
+  "You pour focus into [Talent] and it answers.",
+  "You guide [Talent] with confidence, despite a few bumps.",
+  "Your [Talent] hits its mark, though a bit loud about it."
+];
+
+const talentPower6 = [
+  "You execute your [Talent] with precision and force.",
+  "Your [Talent] flows with sharp clarity.",
+  "You apply [Talent] like a skilled artisan.",
+  "There’s a snap to your [Talent]—clean and confident.",
+  "You make quick, decisive use of your [Talent].",
+  "Your [Talent] carves through the problem efficiently.",
+  "You press forward, and your [Talent] follows like muscle memory.",
+  "Your [Talent] is polished, but still evolving.",
+  "You stumble briefly, but your [Talent] picks up fast.",
+  "You almost rush [Talent], but maintain control.",
+  "Your [Talent] flares brightly, then settles into rhythm.",
+  "There’s fire in your [Talent], even with small missteps."
+];
+
+const talentPower7 = [
+  "You finesse the task beautifully with your [Talent].",
+  "Your [Talent] operates with natural grace.",
+  "You show clear mastery in how you use [Talent].",
+  "Your [Talent] brings about results with flair.",
+  "The rhythm of your [Talent] is captivating.",
+  "You perform with an elegance only [Talent] can bring.",
+  "Your [Talent] shines with practiced power.",
+  "Every move with [Talent] feels smooth and strong.",
+  "You impress without trying—your [Talent] speaks for itself.",
+  "There’s minor flourish in your [Talent], but it feels earned."
+];
+
+const talentPower8 = [
+  "You make art out of your [Talent].",
+  "Your [Talent] is nearly flawless and refined.",
+  "You manipulate the task with pure [Talent].",
+  "There’s fluid, expert rhythm in your [Talent].",
+  "Your [Talent] guides the task like second nature.",
+  "You don't hesitate—your [Talent] dances forward.",
+  "Your [Talent] brings stunning results with minimal effort.",
+  "Every detail is accounted for in your [Talent].",
+  "Even your pauses in [Talent] seem intentional.",
+  "Your [Talent] could teach others just by observation."
+];
+
+const talentPower9 = [
+  "Your [Talent] dominates the task with masterful grace.",
+  "The world bends to the motion of your [Talent].",
+  "You handle the process like a legend of [Talent].",
+  "Nothing escapes your control—your [Talent] is commanding.",
+  "You move with the calm certainty of [Talent] mastery.",
+  "The power of [Talent] seems embedded in your being.",
+  "Your [Talent] feels woven into your identity.",
+  "You don’t perform [Talent]—you embody it.",
+  "Each motion in your [Talent] is precise and absolute.",
+  "You bring about near-perfection through [Talent]."
+];
+
+const talentPower10 = [
+  "You shape reality with your [Talent].",
+  "The world watches in awe of your [Talent].",
+  "Your [Talent] is myth in motion.",
+  "You transcend the task through your [Talent].",
+  "Your [Talent] radiates timeless mastery.",
+  "Every action is divine—pure [Talent] at its peak.",
+  "You work miracles with your [Talent].",
+  "Legends will remember this moment of [Talent].",
+  "The essence of [Talent] flows through you fully.",
+  "You perform [Talent] with power that defies understanding."
+];
+
+const scoutWords = [
+  "analyze", "assess", "check", "calculate", "decipher", "examine", "inspect", "investigate", "listen",
+  "look around", "observe", "scan", "scope out", "scout", "survey", "track", "take in", "watch"
+];
+
+const detail1 = [
+  "You didn't notice much.",
+  "Nothing stands out.",
+  "It all seems normal to your untrained mind.",
+  "You can only see the basics, but that's about it.",
+  "Your glance passes over everything without meaning.",
+  "There's little your eyes can make sense of.",
+  "The area feels vague and indistinct.",
+  "Whatever might be here, it's lost on you.",
+  "You wish you studied more.",
+  "Your brain is foggy.",
+  "Your eyes are sharp but your mind isn't.",
+  "You rack your puny mind only to make out some small details."
+];
+
+const detail2 = [
+  "You notice a few obvious features.",
+  "There’s not much that catches your eye.",
+  "You spot one or two things of interest.",
+  "Your attention grazes the surface.",
+  "Your mind snags briefly on something out of place.",
+  "You register something small but can’t quite define it.",
+  "You sense the bare outlines of activity.",
+  "You catch a glimpse, but it fades before it’s clear.",
+  "You thank the heavens that you can at least make out a detail or two."
+];
+
+const detail3 = [
+  "You pick up on a few small details.",
+  "Something feels off, but you're not sure what.",
+  "You catch glimpses of subtle patterns.",
+  "There’s more here than meets the eye.",
+  "Your eyes trace uneven paths in the environment.",
+  "A sound or motion almost makes sense to you.",
+  "You feel the tug of something unspoken.",
+  "Hints of order tease your awareness.",
+  "You embrace some naivety in your surveying skills."
+];
+
+const detail4 = [
+  "You notice patterns others might miss.",
+  "Your thoughts linger on a few specific details.",
+  "You recognize some purposeful arrangements.",
+  "You catch onto a few underlying cues.",
+  "Objects seem placed with intent, not randomness.",
+  "You notice odd alignments that suggest deeper function.",
+  "A faint mark draws your gaze, meaningful or not.",
+  "You detect symmetry hidden beneath the clutter.",
+  "Your mind sparks with some tiny clues."
+];
+
+const detail5 = [
+  "You discern useful clues.",
+  "Your mind starts connecting dots.",
+  "You get a sense of structure in your surroundings.",
+  "You begin to grasp the bigger picture.",
+  "Faint impressions resolve into hints of narrative.",
+  "There’s rhythm in the way things are spaced.",
+  "Your mind fills in the blanks naturally.",
+  "Disparate parts start to form a whole."
+];
+
+const detail6 = [
+  "You quickly spot key elements of the scene.",
+  "You see layers of meaning others overlook.",
+  "Your perception filters noise from signal.",
+  "You identify important features with ease.",
+  "The scene unfolds before you like a planned arrangement.",
+  "Each item seems to tell part of a greater story.",
+  "You detect movement where others would miss stillness.",
+  "Details leap out like words in a book."
+];
+
+const detail7 = [
+  "You understand the implications of what you see.",
+  "Your insight draws out subtle truths.",
+  "You recognize hidden patterns and meanings.",
+  "Nothing escapes your notice.",
+  "Even the silence has structure to your ears.",
+  "You sense motive behind seemingly random choices.",
+  "Your thoughts flow with the shape of the space.",
+  "You interpret the stillness as something waiting to act."
+];
+
+const detail8 = [
+  "Your mind pieces together invisible threads.",
+  "You interpret the scene with clarity and speed.",
+  "Even faint traces yield meaningful conclusions.",
+  "Your intuition and logic work in perfect sync.",
+  "You sense memory lingering in corners and echoes.",
+  "Mundane details crystallize into valuable insights.",
+  "You perceive intent beneath design and behavior.",
+  "Your mind stitches everything together instantly."
+];
+
+const detail9 = [
+  "You analyze your surroundings with surgical precision.",
+  "You intuit layers of complexity with ease.",
+  "Every detail seems to speak to you.",
+  "You comprehend not just the what, but the why.",
+  "Your thoughts dissect the space like a scholar with diagrams.",
+  "Even stillness suggests history to you.",
+  "You distinguish illusion from function with ease.",
+  "Your awareness stretches beyond what is visible."
+];
+
+const detail10 = [
+  "You perceive truths hidden from ordinary minds.",
+  "The full scope of the environment opens itself to you.",
+  "You see behind appearances to the reality beneath.",
+  "Your awareness feels nearly omniscient.",
+  "You interpret the moment as though reading fate itself.",
+  "Every shadow, scent, and silence is meaningful.",
+  "You perceive time’s passage through dust and echoes.",
+  "The world reveals its secrets before you even ask.",
+  "Your eyes locks into every single detail.",
+  "Your extreme intelligence aids you."
+];
 /////////////////////////////////////////////////////////////////////////////////////
 
 /// TAS STANDARD FUNCTIONS
@@ -8505,7 +8818,7 @@ const raceMods = {
 };
 
 modKeys = ["lvlMod", "hpMod", "mpMod", "epMod", "atkMod", "defMod", "spdMod", "lckMod", "intlMod"];
-raceNames = ["Human", "Dwarf", "Beastfolk", "Elf", "Orc", "Lizardmen", "Goblin", "Majin", "Vampire", "Fairy", "God", "Yokai", "Dragon", "Zombie", "Insectoid", "Angel", "Demon", "Daemon", "Slime", "Harpy", "Lich"];
+raceNames = ["Human", "Dwarf", "Beastfolk", "Elf", "Orc", "Lizardmen", "Goblin", "Majin", "Vampire", "Fairy", "God", "Yokai", "Dragon", "Zombie", "Insectoid", "Angel", "Demon", "Daemon", "Slime", "Harpy", "Lich", "Bloodletter", "Plaguebearer", "Chiss", "Shifters", "High Elves", "Sangheili", "Kig-Yar", "Unggoy", "Minotaur", "Yautja", "Kroxigor", "Krogan", "Twi'lek", "Erinyes", "Togruta", "Skink", "Cold Ones", "Jiralhanae"];
 statKeysForMod = ["lvl", "hp", "mp", "ep", "atk", "def", "spd", "lck", "intl"];
 
 
