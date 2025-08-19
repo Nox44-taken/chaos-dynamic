@@ -26,12 +26,6 @@ const modifier = (text) => {
   const personalSummary = ` Charmer:${personal.Charmer || 0} Honorable:${personal.Honorable || 0} Rogue:${personal.Rogue || 0} Dominant:${personal.Dominant || 0} Submissive:${personal.Submissive || 0} Prankster:${personal.Prankster || 0} Curious:${personal.Curious || 0} Innocent:${personal.Innocent || 0} Mischievous:${personal.Mischievous || 0} Affectionate:${personal.Affectionate || 0} Defiant:${personal.Defiant || 0} Brave:${personal.Brave || 0} Clever:${personal.Clever || 0} Playful:${personal.Playful || 0}`;
 
   // --- Clock String ---
-  let clockString = typeof getClockString === "function"
-    ? getClockString()
-    : (globalThis.getClockString ? globalThis.getClockString() : "");
-
-  let timeSummary = "";
-  if (clockString) timeSummary = `It is currently ${clockString}.`;
 
   // --- Instructions ---
   // --- You will have to change this to fit your scenarios. Fill free to change it up add wild quirks try and get ii to change how the AI acts.😁😁😎
@@ -95,7 +89,7 @@ This scenario is a freeform demo of the ReputeX system. Let the player's persona
 
 
 return {
-  text:  result.text,
+  text:  contextText + result.text,
   stop: result.stop
   };
 };
