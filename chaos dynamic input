@@ -395,8 +395,8 @@ for (const pattern of patterns) {
  storeCurrToSC();
 
 
-return { text: result.text,
-         stop: result.stop
+return { text: modifiedText + result.text,
+         stop: stop + result.stop
   };
 };
 
