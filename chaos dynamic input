@@ -83,8 +83,11 @@ const modifier = (text) => {
   
 
   // First process AutoCards if needed
-
+ text = onInput_TAS(text);
+   // The onInput_Combined function handles all command parsing,
+  // time advancement, and other input modifications from the library.
   const result = onInput_Combined(text);
+
  
   // Return the processed text and the 'stop' flag to the game.
   // The 'stop' flag prevents the AI from seeing the input if a command was handled.
