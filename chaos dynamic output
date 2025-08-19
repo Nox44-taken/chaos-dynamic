@@ -304,130 +304,7 @@ if (typeof pickHybridReaction === "undefined") {
   checkHybridJobUnlocks(state.unlockedJobs, state);
 
   // --- NPC Reactions ---
-  let reactionLine = "";
-  const age = (state.ages?.player ?? 0);
-  const style = state.narrationStyle || "classic";
-const pickLine = (narratStyle, style) => {
 
-};
-
-
-// --- Legendary/Unique Reactions (highest priority) ---
-if (
-  rep.Honorable >= 80 &&
-  rep.Dominant >= 80 &&
-  rep.Charmer >= 70 &&
-  getAgeBracket(age) === "adult"
-) {
-  reactionLine = pickLine(legendaryLawbringerLines, style);
-}
-else if (
-  rep.Rogue >= 65 &&
-  rep.Prankster >= 60 &&
-  rep.Clever >= 55 &&
-  (getAgeBracket(age) === "youth" || getAgeBracket(age) === "adult")
-) {
-  reactionLine = pickLine(infamousTricksterLines, style);
-}
-else if (
-  rep.Curious >= 75 &&
-  rep.Clever >= 75 &&
-  rep.Brave >= 60 &&
-  (getAgeBracket(age) === "youth" || getAgeBracket(age) === "adult")
-) {
-  reactionLine = pickLine(geniusExplorerLines, style);
-}
-else if (
-  rep.Charmer >= 80 &&
-  rep.Honorable >= 65 &&
-  getAgeBracket(age) === "adult"
-) {
-  reactionLine = pickLine(patronOfTheArtsLines, style);
-}
-else if (
-  rep.Honorable >= 65 &&
-  rep.Clever >= 70 &&
-  rep.Dominant >= 60 &&
-  getAgeBracket(age) === "adult"
-) {
-  reactionLine = pickLine(visionaryReformerLines, style);
-}
-else if (
-  rep.Rogue >= 75 &&
-  rep.Honorable <= -30 &&
-  rep.Clever >= 60 &&
-  getAgeBracket(age) === "adult"
-) {
-  reactionLine = pickLine(poisonerLines, style);
-}
-else if (
-  rep.Charmer >= 90 &&
-  rep.Submissive >= 60 &&
-  rep.Dominant <= 20 &&
-  getAgeBracket(age) === "adult"
-) {
-  reactionLine = pickLine(courtierLines, style);
-}
-else if (
-  rep.Clever >= 65 &&
-  rep.Curious >= 60 &&
-  (getAgeBracket(age) === "child" || getAgeBracket(age) === "youth")
-) {
-  reactionLine = pickLine(childProdigyLines, style);
-}
-else if (
-  rep.Innocent >= 70 &&
-  rep.Affectionate >= 70 &&
-  getAgeBracket(age) === "child"
-) {
-  reactionLine = pickLine(saintlyInnocentLines, style);
-}
-
-// --- High-Value Pair & Peak Trait Reactions (if none above matched) ---
-if (!reactionLine) {
-  if (rep.Charmer >= 25 && rep.Honorable >= 26) {
-    reactionLine = pickLine(charmerHonorableLines, style);
-  }
-  else if (rep.Dominant >= 24 && rep.Charmer >= 26) {
-    reactionLine = pickLine(dominantCharmerLines, style);
-  }
-  else if (rep.Clever >= 27 && rep.Honorable >= 27) {
-    reactionLine = pickLine(cleverHonorableLines, style);
-  }
-  else if (rep.Innocent >= 16 && rep.Affectionate >= 26) {
-    reactionLine = pickLine(innocentAffectionatePeakLines, style);
-  }
-  else if (rep.Curious >= 27 && rep.Clever >= 26) {
-    reactionLine = pickLine(curiousCleverPeakLines, style);
-  }
-  else if (rep.Dominant >= 29 && rep.Honorable >= 27) {
-    reactionLine = pickLine(sternHonorableLines, style);
-  }
-  else if (rep.Prankster >= 27 && rep.Playful >= 26) {
-    reactionLine = pickLine(pranksterPlayfulLines, style);
-  }
-  else if (rep.Affectionate >= 14) {
-    reactionLine = pickLine(affectionatePeakLines, style);
-  }
-  else if (rep.Curious >= 16) {
-    reactionLine = pickLine(curiousPeakLines, style);
-  }
-  else if (rep.Dominant >= 15) {
-    reactionLine = pickLine(dominantPeakLines, style);
-  }
-  else if (rep.Charmer >= 19) {
-    reactionLine = pickLine(charmerPeakLines, style);
-  }
-  else if (rep.Innocent >= 19) {
-    reactionLine = pickLine(innocentPeakLines, style);
-  }
-}
-
-  // --- Output only if changed since last reaction ---
-  if (reactionLine && reactionLine !== state.lastReactionLine) {
-    text = `${reactionLine}\n\n${text}`;
-    state.lastReactionLine = reactionLine;
-  }
 
   // --- Hybrid Job List to Output ---
   const hybridList = Object.keys(state.hybridJobs || {})
@@ -437,23 +314,7 @@ if (!reactionLine) {
     changes.push(`[Hybrid Jobs] ${hybridList.join(", ")}`);
   }
 
-  // --- Example: pick a reaction if Charmer or Prankster went up ---
-  let lastChange = state.lastPersonalReputationChange || {};
-  let phrase = "";
 
-  if (lastChange.Charmer > 0) {
-    phrase = reactionPhrases.Charmer.Positive[
-      Math.floor(Math.random() * reactionPhrases.Charmer.Positive.length)
-    ];
-  }
-  else if (lastChange.Prankster > 0) {
-    phrase = reactionPhrases.Prankster.Positive[
-      Math.floor(Math.random() * reactionPhrases.Prankster.Positive.length)
-    ];
-  }
-  if (phrase) {
-    text = insertNPCReaction(text, phrase);
-  }
 
   // --- Clear rep deltas ---
   state.lastWorldReputationChange = {};
@@ -462,13 +323,13 @@ if (!reactionLine) {
   // --- Final output, stacking all pieces in order ---
  let tmday = checkTimeOfDay();
   // --- Final output, stacking all pieces in order ---
-  let outText = text;
+  let outText = result.text;
   if (changes.length > 0) outText = [outText, ...changes].join("\n\n");
  
 storeCurrToSC();
 
  // Return everything in separate lines
-let finalText = [tmday, result.text, outText].filter(Boolean).join("\n");
+let finalText = [tmday, outText].filter(Boolean).join("\n");
 return { text: finalText };
 };
 
