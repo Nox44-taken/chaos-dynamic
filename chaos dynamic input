@@ -54,6 +54,7 @@ const calmingWords = ["calm", "rest", "relax", "meditate", "sleep", "comfort", "
 
 
 retrieveCurrFromSC();
+
 const modifier = (text) => {
 
 //Allows user to enter [RACE] and/or [CLASS] to have script choose for them.
@@ -389,9 +390,9 @@ for (const pattern of patterns) {
 
 
  storeCurrToSC();
- let finText = [ modifiedText, result.text].filter(Boolean).join("\n");
 
-return { text: finText, 
+
+return { text: result.text,
          stop: result.stop
   };
 };
