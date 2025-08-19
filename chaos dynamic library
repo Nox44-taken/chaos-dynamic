@@ -4266,7 +4266,7 @@ function AutoCards(inHook, inText, inStop) {
                         continue;
                     }
                 }
-                // Detect and repair malformed auto-card properties in a fault-tolerant manner
+                 // Detect and repair malformed auto-card properties in a fault-tolerant manner
                 const traits = [card.entry, card.description].map((str, i) => {
                     // Absolute abomination uwu
                     const hasUpdates = /updates?\s*:[\s\S]*?(?:(?:title|limit)s?\s*:|})/i.test(str);
@@ -11119,7 +11119,8 @@ function detectHeal(strgType, index) {
 
       // Apply heal to stats
       statUp("hp", healAmt);
-
+      statUp("mp", healAmt);
+      statUp("ep", healAmt);
       healFlavorText = healFlavorText + " You feel better as you recover some health."
       //todo: edit text
     }
@@ -11132,7 +11133,8 @@ function detectHeal(strgType, index) {
 
     // Apply heal to stats
     statUp("hp", healAmt);
-
+    statUp("mp", healAmt);
+    statUp("ep", healAmt);
     healFlavorText = healFlavorText + " You feel better as you recover some health."
   }
 
