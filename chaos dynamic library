@@ -9486,7 +9486,12 @@ function storeCurrToSC() {
     `Current Heat: ${state.heat}\n` +
     `Current Temperature: ${state.storyTemperature}\n` +
     `Current turn: ${state.turnCount}\n` +
-    `Authors Note: ${state.authorsNoteStorage}`;
+    `Authors Note: ${state.authorsNoteStorage}\n`+ 
+    `TD: ${state.stt.timePassOnDo}\n`+
+    `TS: ${state.stt.timePassOnSay}\n`+
+    `TST: ${state.stt.timePassOnStory}\n`+
+    `TC: ${state.stt.timePassOnContinue} \n`;
+
 
   // Initialize description if missing
   if (!currSC.description) {
@@ -9540,6 +9545,18 @@ function retrieveCurrFromSC() {
     }
     else if (key === "Authors Note") {
       state.memory.authorsNote = value || state.authorsNoteStorage;
+    }
+      else if (key === "TD") {
+      state.stt.timePassOnDo = Number(value);
+    }
+    else if (key === "TS") {
+      state.stt.timePassOnSay = Number(value);
+    }
+    else if (key === "TST") {
+      state.stt.timePassOnStory = Number(value);
+    }
+    else if (key === "TC") {
+      state.stt.timePassOnContinue = Number(value);
     }
   });
 
